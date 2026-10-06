@@ -25,13 +25,24 @@
         },
       };
     </script>
+    <style>
+      #auth [hidden] { display: none !important; }
+      #auth-panel.auth-enter { animation: auth-rise 0.7s ease both; }
+      @keyframes auth-rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: none; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #auth-panel.auth-enter { animation: none; }
+      }
+    </style>
   </head>
   <body class="h-screen overflow-hidden bg-mist font-sans text-ink antialiased">
     <section id="gate" class="hidden h-full overflow-y-auto">
       <div class="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6 py-16">
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Data Sentinels</p>
         <h1 class="mt-2 text-3xl font-semibold tracking-tight">Evidence Register</h1>
-        <p class="mt-3 text-sm leading-relaxed text-slate-600">Open the link for your role. Each one is a separate view.</p>
+        <p class="mt-3 text-sm leading-relaxed text-slate-600">Create an account on the link for your role. Each link is a separate view.</p>
         <div class="mt-8 grid gap-3">
           <a href="/user" class="rounded-xl border border-line bg-white px-5 py-4">
             <p class="text-sm font-semibold">User</p>
@@ -49,6 +60,61 @@
             <p class="mt-2 text-xs text-brand">/admin</p>
           </a>
         </div>
+      </div>
+    </section>
+    <section id="auth" class="relative hidden h-full overflow-hidden">
+      <div id="blob-blue" aria-hidden="true" class="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#7EB6FF] opacity-80 blur-3xl"></div>
+      <div id="blob-purple" aria-hidden="true" class="pointer-events-none absolute -bottom-24 -left-16 h-80 w-80 rounded-full bg-[#C4B5FD] opacity-80 blur-3xl"></div>
+      <div id="auth-panel" class="relative mx-auto flex h-full max-w-md flex-col justify-center overflow-y-auto px-6 py-16">
+        <a href="/" class="text-sm font-medium text-brand">All profiles</a>
+        <p id="auth-kicker" class="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">User</p>
+        <h1 id="auth-title" class="mt-2 text-3xl font-semibold tracking-tight">Create an account</h1>
+        <p id="auth-copy" class="mt-3 text-sm leading-relaxed text-slate-600">This account starts with the user profile. An admin can grant another profile later.</p>
+        <p id="auth-error" class="mt-4 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800"></p>
+        <form id="signup-form" class="mt-6 grid gap-3">
+          <label class="text-sm font-medium">Name
+            <input name="name" required maxlength="80" autocomplete="name" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <label class="text-sm font-medium">Work email
+            <input name="email" type="email" required maxlength="120" autocomplete="email" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <label class="text-sm font-medium">Password
+            <input name="password" type="password" required minlength="8" autocomplete="new-password" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <label class="text-sm font-medium">Job
+            <input name="job" maxlength="80" placeholder="Compliance officer" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <label class="text-sm font-medium">Department
+            <input name="unit" required maxlength="80" placeholder="Delivery" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <label id="age-field" hidden class="text-sm font-medium">Age range
+            <select name="ageRange" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">
+              <option value="18–24">18–24</option>
+              <option value="25–34">25–34</option>
+              <option value="35–44">35–44</option>
+              <option value="45–54">45–54</option>
+              <option value="55–64">55–64</option>
+              <option value="65+">65+</option>
+            </select>
+          </label>
+          <div id="sign-draw" hidden>
+            <p class="text-sm font-medium">Signature</p>
+            <canvas id="sign-pad" width="440" height="140" class="mt-1 w-full touch-none rounded-lg border border-line bg-white"></canvas>
+            <button type="button" id="sign-clear" class="mt-2 text-sm font-medium text-brand">Clear</button>
+          </div>
+          <input type="hidden" name="inviteToken" value="" />
+          <button type="submit" class="mt-2 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Create account</button>
+        </form>
+        <form id="signin-form" hidden class="mt-6 grid gap-3">
+          <label class="text-sm font-medium">Work email
+            <input name="email" type="email" required maxlength="120" autocomplete="email" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <label class="text-sm font-medium">Password
+            <input name="password" type="password" required minlength="8" autocomplete="current-password" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <button type="submit" class="mt-2 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Sign in</button>
+        </form>
+        <button type="button" id="auth-switch" class="mt-4 text-left text-sm font-medium text-brand">Already have an account? Sign in</button>
       </div>
     </section>
     <div id="shell" class="flex h-full">
@@ -72,10 +138,10 @@
               <input id="q" type="search" placeholder="Search controls, evidence, tickets" class="w-full rounded-lg border border-line bg-mist py-2 pl-9 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-brand" />
             </label>
           </div>
-          <label class="flex items-center gap-2 text-xs text-slate-500">
-            Person
-            <select id="actor" class="rounded-lg border border-line bg-white px-2 py-2 text-sm font-medium text-ink outline-none"></select>
-          </label>
+          <div class="flex items-center gap-3 text-sm">
+            <span id="signed-name" class="font-medium"></span>
+            <button type="button" id="sign-out" class="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-slate-600">Sign out</button>
+          </div>
         </header>
         <nav id="mobile-nav" class="flex gap-1 overflow-x-auto border-b border-line bg-white px-3 py-2 md:hidden" aria-label="Sections"></nav>
         <main id="pane" class="flex-1 overflow-y-auto px-4 py-6 md:px-8"></main>
@@ -114,8 +180,8 @@
       <form id="control-form" class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-semibold">Add a control</h2>
-            <p class="mt-1 text-sm text-slate-500">Write it in your own words. The register does not paste the standard.</p>
+            <h2 class="text-lg font-semibold">Custom requirement</h2>
+            <p class="mt-1 text-sm text-slate-500">Write a requirement this organisation keeps. It is separate from the ISO/IEC 42001 templates.</p>
           </div>
           <button type="button" data-close="control-dialog" class="text-sm text-slate-500">Close</button>
         </div>
@@ -125,12 +191,43 @@
         <label class="mt-3 block text-sm font-medium">Evidence it needs
           <input name="expected" maxlength="120" placeholder="AI risk assessment" class="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal outline-none focus:border-brand" />
         </label>
+        <label class="mt-3 block text-sm font-medium">How often it is reviewed
+          <input name="frequency" maxlength="80" placeholder="Every 12 months" class="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal outline-none focus:border-brand" />
+        </label>
         <label class="mt-3 block text-sm font-medium">Owner
           <select name="ownerId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal outline-none"></select>
         </label>
+        <label class="mt-3 block text-sm font-medium">Reviewer
+          <select name="reviewerId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal outline-none"></select>
+        </label>
         <div class="mt-5 flex justify-end gap-2">
           <button type="button" data-close="control-dialog" class="rounded-lg border border-line px-3 py-2 text-sm">Cancel</button>
-          <button type="submit" class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Add control</button>
+          <button type="submit" class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Add requirement</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="template-dialog" class="w-[min(480px,calc(100%-2rem))] rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/40">
+      <form id="template-form" class="p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">ISO/IEC 42001 template</p>
+            <h2 id="template-title" class="mt-1 text-lg font-semibold">Template</h2>
+          </div>
+          <button type="button" data-close="template-dialog" class="text-sm text-slate-500">Close</button>
+        </div>
+        <p id="template-requirement" class="mt-3 text-sm leading-relaxed text-slate-600"></p>
+        <input type="hidden" name="templateId" />
+        <label class="mt-5 block text-sm font-medium">Owner
+          <select name="ownerId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal outline-none"></select>
+        </label>
+        <label class="mt-3 block text-sm font-medium">Reviewer
+          <select name="reviewerId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal outline-none"></select>
+        </label>
+        <p class="mt-3 text-xs leading-relaxed text-slate-500">The reviewer needs the reviewer profile. They cannot approve a file they upload.</p>
+        <div class="mt-5 flex justify-end gap-2">
+          <button type="button" data-close="template-dialog" class="rounded-lg border border-line px-3 py-2 text-sm">Cancel</button>
+          <button type="submit" class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Add to control set</button>
         </div>
       </form>
     </dialog>
@@ -166,6 +263,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=18"></script>
+    <script src="/app.js?v=30"></script>
   </body>
 </html>

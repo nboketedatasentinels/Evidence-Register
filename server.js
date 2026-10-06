@@ -14,7 +14,7 @@ const STATUSES = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE'];
 const REVIEWS = ['awaiting', 'confirmed', 'overridden'];
 const RANK = { 'NO EVIDENCE': 0, 'NOT MET': 1, PARTIAL: 2, MET: 3 };
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '4mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get(['/user', '/reviewer', '/admin'], (_req, res) => {
@@ -186,13 +186,13 @@ app.post('/api/runs', (req, res) => {
 });
 
 app.get('/api/settings', (_req, res) => {
-  res.json(readJson(SETTINGS, { evidencePath: '', operator: 'Syntiche Musawu' }));
+  res.json(readJson(SETTINGS, { evidencePath: '', operator: '' }));
 });
 
 app.put('/api/settings', (req, res) => {
   const settings = {
     evidencePath: clean(req.body.evidencePath, 240),
-    operator: clean(req.body.operator, 80) || 'Syntiche Musawu',
+    operator: clean(req.body.operator, 80),
   };
   writeJson(SETTINGS, settings);
   res.json(settings);
@@ -306,21 +306,60 @@ function loopResult(res, work) {
   }
 }
 
-app.get('/api/loop', (_req, res) => {
-  res.json({ workspace: loop.read() });
+function bearer(req) {
+  return String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+}
+
+function actorBody(req) {
+  const actorId = loop.personIdForToken(bearer(req));
+  if (!actorId) {
+    const error = new Error('Sign in to continue.');
+    error.status = 401;
+    throw error;
+  }
+  return {
+    ...req.body,
+    actorId,
+    ip: clean(req.ip || '', 80),
+    userAgent: clean(req.get('user-agent') || '', 180),
+  };
+}
+
+app.get('/api/loop', (req, res) => loopResult(res, () => {
+  const body = actorBody(req);
+  return { workspace: loop.read(), actorId: body.actorId };
+}));
+
+app.post('/api/auth/signup', (req, res) => loopResult(res, () => loop.register({
+  ...req.body,
+  ip: clean(req.ip || '', 80),
+  userAgent: clean(req.get('user-agent') || '', 180),
+})));
+app.get('/api/auth/invite', (req, res) => loopResult(res, () => loop.publicInvite(clean(req.query.token, 80))));
+app.post('/api/auth/login', (req, res) => loopResult(res, () => loop.login(req.body)));
+app.post('/api/auth/logout', (req, res) => {
+  loop.logout(bearer(req));
+  res.json({ ok: true });
 });
 
-app.post('/api/loop/review', (req, res) => loopResult(res, () => loop.review(req.body)));
-app.post('/api/loop/evidence', (req, res) => loopResult(res, () => loop.addEvidence(req.body)));
-app.post('/api/loop/controls', (req, res) => loopResult(res, () => loop.addControl(req.body)));
-app.post('/api/loop/fix', (req, res) => loopResult(res, () => loop.submitFix(req.body)));
-app.post('/api/loop/verify', (req, res) => loopResult(res, () => loop.verify(req.body)));
-app.post('/api/loop/reminders', (req, res) => loopResult(res, () => loop.setReminders(req.body)));
-app.post('/api/loop/people', (req, res) => loopResult(res, () => loop.addPerson(req.body)));
-app.post('/api/loop/roles', (req, res) => loopResult(res, () => loop.setRoles(req.body)));
-app.post('/api/loop/units', (req, res) => loopResult(res, () => loop.addUnit(req.body)));
-app.post('/api/loop/reviewer', (req, res) => loopResult(res, () => loop.assignReviewer(req.body)));
-app.post('/api/loop/reset', (_req, res) => loopResult(res, () => loop.reset()));
+app.post('/api/loop/review', (req, res) => loopResult(res, () => loop.review(actorBody(req))));
+app.post('/api/loop/evidence', (req, res) => loopResult(res, () => loop.addEvidence(actorBody(req))));
+app.post('/api/loop/controls', (req, res) => loopResult(res, () => loop.addControl(actorBody(req))));
+app.post('/api/loop/templates', (req, res) => loopResult(res, () => loop.applyTemplate(actorBody(req))));
+app.post('/api/loop/fix', (req, res) => loopResult(res, () => loop.submitFix(actorBody(req))));
+app.post('/api/loop/verify', (req, res) => loopResult(res, () => loop.verify(actorBody(req))));
+app.post('/api/loop/organisation', (req, res) => loopResult(res, () => loop.setOrganisation(actorBody(req))));
+app.post('/api/loop/reminders', (req, res) => loopResult(res, () => loop.setReminders(actorBody(req))));
+app.post('/api/loop/people', (req, res) => loopResult(res, () => loop.addPerson(actorBody(req))));
+app.post('/api/loop/roles', (req, res) => loopResult(res, () => loop.setRoles(actorBody(req))));
+app.post('/api/loop/units', (req, res) => loopResult(res, () => loop.addUnit(actorBody(req))));
+app.post('/api/loop/systems', (req, res) => loopResult(res, () => loop.addSystem(actorBody(req))));
+app.post('/api/loop/placement', (req, res) => loopResult(res, () => loop.setPlacement(actorBody(req))));
+app.post('/api/loop/reviewer', (req, res) => loopResult(res, () => loop.assignReviewer(actorBody(req))));
+app.post('/api/loop/invite', (req, res) => loopResult(res, () => loop.invitePerson(actorBody(req))));
+app.post('/api/loop/people-import', (req, res) => loopResult(res, () => loop.importPeople(actorBody(req))));
+app.post('/api/loop/invite-pen', (req, res) => loopResult(res, () => loop.setInvitePen(actorBody(req))));
+app.post('/api/loop/acknowledge', (req, res) => loopResult(res, () => loop.acknowledge(actorBody(req))));
 
 app.listen(PORT, () => {
   console.log(`Evidence Register T4L running at http://localhost:${PORT}`);

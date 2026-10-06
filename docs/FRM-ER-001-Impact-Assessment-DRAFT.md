@@ -5,7 +5,7 @@
 **System name:** Data Sentinels Evidence Register  
 **Short name:** Evidence register  
 **Organisation:** Data Sentinels / Transformation Leader (T4L)  
-**System owner:** Syntiche Musawu  
+**System owner:** Unassigned  
 **Version:** 0.1 Draft  
 **Date created:** 23 September 2026  
 **Last updated:** 24 September 2026  
