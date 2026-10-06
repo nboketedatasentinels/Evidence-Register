@@ -1,0 +1,12 @@
+{
+  "name": "evidence-register-t4l",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AIMS evidence register for the T4L advisory grading system",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
