@@ -27,6 +27,10 @@
     </script>
     <style>
       #auth [hidden] { display: none !important; }
+      #hello-band[hidden] { display: none !important; }
+      #evidence-dialog[open] { display: flex; flex-direction: column; }
+      .er-source { border: 1px solid #E6EAF0; background: #fff; }
+      .er-source:has(input:checked) { border-color: #1860C8; background: #E7EEF8; box-shadow: inset 0 0 0 1px #1860C8; }
       #auth-panel.auth-enter { animation: auth-rise 0.7s ease both; }
       @keyframes auth-rise {
         from { opacity: 0; transform: translateY(14px); }
@@ -268,24 +272,24 @@
         <nav id="mobile-nav" class="flex gap-1 overflow-x-auto border-b border-line bg-white px-3 py-2 md:hidden" aria-label="Sections"></nav>
         <main id="pane" class="flex-1 overflow-y-auto px-4 py-6 md:px-8"></main>
         <footer class="border-t border-line bg-white px-4 py-3 text-xs leading-relaxed text-slate-500 md:px-8">
-          A co-worker for the coordinator. Status is calculated from the records on file, and a named person decides. This is not an internal audit or a certificate.
+          Evidence Register supports AI governance and evidence management. It does not replace an internal audit or provide ISO/IEC 42001 certification.
         </footer>
       </div>
     </div>
 
-    <dialog id="evidence-dialog" class="w-[min(520px,calc(100%-2rem))] rounded-xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/40">
-      <form id="evidence-form" class="p-6">
-        <div class="flex items-start justify-between gap-4">
+    <dialog id="evidence-dialog" class="w-[min(680px,calc(100%-2rem))] max-h-[min(780px,calc(100%-2rem))] overflow-hidden rounded-2xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-navy/40">
+      <form id="evidence-form" class="flex min-h-0 flex-1 flex-col">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
           <div>
-            <h2 class="text-lg font-semibold">Upload a document</h2>
-            <p class="mt-1 text-sm text-slate-500">Choose where it lives. A file from this computer is recorded by name and fingerprint. Other places are not connected yet. You cannot approve your own file.</p>
+            <h2 class="text-lg font-semibold">Upload evidence</h2>
+            <p class="mt-1 text-sm leading-relaxed text-slate-500">Choose where the document lives. This computer can be recorded now. The other places are named, and you record the link or path.</p>
           </div>
           <button type="button" data-close="evidence-dialog" class="text-sm text-slate-500">Close</button>
         </div>
-        <div id="evidence-fields"></div>
-        <div class="mt-5 flex justify-end gap-2">
+        <div id="evidence-fields" class="min-h-0 flex-1 overflow-y-auto px-6 pb-4"></div>
+        <div class="flex justify-end gap-2 border-t border-line px-6 py-4">
           <button type="button" data-close="evidence-dialog" class="rounded-lg border border-line px-3 py-2 text-sm">Cancel</button>
-          <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white disabled:opacity-70">Upload document</button>
+          <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-[#1860C8] px-3 py-2 text-sm font-medium text-white disabled:opacity-70">Upload evidence</button>
         </div>
       </form>
     </dialog>
@@ -377,6 +381,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=57"></script>
+    <script src="/app.js?v=60"></script>
   </body>
 </html>

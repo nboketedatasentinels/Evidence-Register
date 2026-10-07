@@ -394,40 +394,47 @@ function evidenceSources() {
   return ws()?.evidenceSources || [];
 }
 
-function evidenceFields() {
-  const controls = ws()?.controls || [];
-  const options = evidenceSources().map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)}${source.connected ? '' : ' · not connected'}</option>`).join('');
+function uploadControlList() {
+  if (state.profile === 'uploader') return ownedControls();
+  return ws()?.controls || [];
+}
+
+function evidenceFields(controls = uploadControlList()) {
+  const tiles = evidenceSources().map((source, index) => `
+    <label class="er-source cursor-pointer rounded-xl px-3 py-3">
+      <input type="radio" name="sourceId" value="${escapeHtml(source.id)}" ${index === 0 ? 'checked' : ''} class="sr-only" />
+      <span class="block text-sm font-medium">${escapeHtml(source.name)}</span>
+      <span class="mt-1 block text-xs font-normal text-slate-500">${source.connected ? 'Available now' : 'Record the place'}</span>
+    </label>`).join('');
   const also = controls.length > 1
-    ? `<fieldset class="mt-3"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-36 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml((control.requirement || control.expected || '').slice(0, 90))}</span></label>`).join('')}</div></fieldset>`
+    ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can sit against more than one requirement assigned here.</p><div class="mt-2 max-h-28 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml(controlTitle(control))}</span></label>`).join('')}</div></fieldset>`
     : '';
   return `
-    <label class="mt-5 block text-sm font-medium">Where it lives
-      <select name="sourceId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none">${options}</select>
-    </label>
-    <div data-source-file class="mt-3">
-      <label class="block text-sm font-medium">File on this computer
-        <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-mist file:px-3 file:py-2 file:text-sm file:font-medium" />
-      </label>
-      <p class="mt-1 text-xs font-normal text-slate-500">The register keeps the file name and a fingerprint. It does not keep a copy of the file.</p>
+    <p class="mt-5 text-sm font-medium">Where does this evidence live?</p>
+    <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">${tiles}</div>
+    <div data-source-file class="mt-4 rounded-xl border border-dashed border-line bg-mist px-4 py-4">
+      <p class="text-sm font-medium">File from this computer</p>
+      <p class="mt-1 text-xs font-normal text-slate-500">The register keeps the name and a fingerprint. It does not keep a copy of the file.</p>
+      <input name="document" type="file" class="mt-3 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#1860C8]" />
     </div>
-    <div data-source-place hidden class="mt-3">
-      <label class="block text-sm font-medium">Where the document already lives
-        <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+    <div data-source-place hidden class="mt-4">
+      <label class="block text-sm font-medium">Link or folder path
+        <input name="location" maxlength="300" placeholder="https://drive.google.com/… or a folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
       </label>
-      <p class="mt-1 text-xs font-normal text-slate-500">This place is not connected. Record the link or path. The file stays where it is.</p>
+      <p class="mt-1 text-xs font-normal text-slate-500">This place is named, not connected. The file stays where it is.</p>
     </div>
-    <label class="mt-3 block text-sm font-medium">Document name
-      <input name="name" required maxlength="160" placeholder="AI_Risk_Assessment_2026.pdf" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
-    </label>
-    <label class="mt-3 block text-sm font-medium">Requirement
-      <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none">${controls.map(controlChoice).join('')}</select>
+    <label class="mt-4 block text-sm font-medium">Requirement
+      <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal outline-none">${controls.map(controlChoice).join('')}</select>
     </label>
     ${also}
-    <label class="mt-3 block text-sm font-medium">What the document shows
-      <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand"></textarea>
+    <label class="mt-4 block text-sm font-medium">Evidence title
+      <input name="name" required maxlength="160" placeholder="AI risk register" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
     </label>
-    <label class="mt-3 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
-      <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+    <label class="mt-4 block text-sm font-medium">What this document shows
+      <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
+    </label>
+    <label class="mt-4 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
+      <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
     </label>`;
 }
 
@@ -525,6 +532,35 @@ function myTickets() {
   return (ws().tickets || []).filter((ticket) => ticket.ownerId === state.actorId && ticket.status !== 'resolved');
 }
 
+function ownedControls() {
+  return (ws().controls || []).filter((control) => control.ownerId === state.actorId);
+}
+
+function controlTitle(control) {
+  return control.expected || control.requirement || 'Requirement';
+}
+
+function noDutyCopy() {
+  if (!(ws().controls || []).length) {
+    return `<h2 class="text-base font-semibold">No requirement has been configured yet.</h2><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">An administrator needs to add the applicable ISO/IEC 42001 requirements and assign responsibilities before you can submit evidence.</p>`;
+  }
+  return `<h2 class="text-base font-semibold">No evidence is currently required from you.</h2><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Your assigned controls will appear here once an administrator has configured the organisation's governance requirements and assigned responsibilities.</p>`;
+}
+
+function dutyCards(controls) {
+  return controls.map((control) => `
+    <article class="rounded-2xl border border-line bg-white p-5 shadow-sm">
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">Evidence required</p>
+      <h2 class="mt-2 text-base font-semibold">${escapeHtml(control.id)} — ${escapeHtml(controlTitle(control))}</h2>
+      <p class="mt-2 text-sm text-slate-600">You are responsible for providing evidence for this control.</p>
+      <button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="mt-4 rounded-lg bg-[#1860C8] px-3.5 py-2 text-sm font-medium text-white">Upload Evidence</button>
+    </article>`).join('');
+}
+
+function dutyNote() {
+  return `<p class="mt-4 max-w-2xl text-sm text-slate-500"><span class="font-medium text-ink">AI-assisted, human-controlled. </span>AI can assess evidence and identify potential gaps, but it does not make the final governance decision.</p>`;
+}
+
 function renderUploaderHome() {
   const day = ws().today || new Date().toISOString().slice(0, 10);
   const all = ws().controls || [];
@@ -588,6 +624,7 @@ function renderUploaderHome() {
     ${banner()}
     ${noteCards()}
     ${ackCards()}
+    ${ownedControls().length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Your responsibilities</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(ownedControls())}</div></section>` : `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${noDutyCopy()}</section>`}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
@@ -1061,79 +1098,17 @@ function renderTemplates() {
 }
 
 function renderUpload() {
-  const framework = ws().organisation?.framework || 'ISO/IEC 42001';
-  const controls = ws().controls || [];
-  if (!controls.length) {
-    pane.innerHTML = `
-      ${banner()}
-      <h1 class="text-2xl font-semibold tracking-tight">Upload a document</h1>
-      <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">A document is checked against a requirement under ${escapeHtml(framework)}. An admin has not added one yet, so there is nowhere to file it.</p>`;
+  const mine = ownedControls();
+  const intro = `<h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload a document to provide evidence for an assigned ISO/IEC 42001 requirement. Evidence is assessed against the relevant control, and an authorised reviewer makes the final decision.</p>`;
+  if (!mine.length) {
+    pane.innerHTML = `${banner()}${intro}<div class="mt-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${noDutyCopy()}</div>${dutyNote()}`;
     return;
   }
-  const steps = ['Select control', 'Upload file', 'Add details', 'Confirm'];
-  const pips = steps.map((label, index) => {
-    const number = index + 1;
-    const on = state.uploadStep === number;
-    const done = state.uploadStep > number;
-    return `<li data-upload-pip="${number}" class="flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#1860C8]' : 'text-slate-400'}"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#1860C8] text-white' : 'bg-slate-100 text-slate-500'}">${number}</span>${escapeHtml(label)}</li>`;
-  }).join('');
   pane.innerHTML = `
     ${banner()}
-    <h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">The reviewer for the selected requirement is notified. You cannot approve your own document.</p>
-    <form id="user-upload-form" class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
-      <ol class="flex flex-wrap gap-x-6 gap-y-3">${pips}</ol>
-      <div data-upload-panel="1" ${state.uploadStep === 1 ? '' : 'hidden'}>
-        <label class="mt-6 block text-sm font-medium">Select control
-          <select name="controlId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal">${controls.map(controlChoice).join('')}</select>
-        </label>
-        ${controls.length > 1 ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-36 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml((control.requirement || control.expected || '').slice(0, 90))}</span></label>`).join('')}</div></fieldset>` : ''}
-      </div>
-      <div data-upload-panel="2" ${state.uploadStep === 2 ? '' : 'hidden'}>
-        <label class="mt-6 block text-sm font-medium">Where it lives
-          <select name="sourceId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal outline-none">${evidenceSources().map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)}${source.connected ? '' : ' · not connected'}</option>`).join('')}</select>
-        </label>
-        <div data-source-file class="mt-4">
-          <label class="block text-sm font-medium">File on this computer
-            <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-[#E7EEF8] file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#1860C8]" />
-          </label>
-          <p class="mt-1 text-xs text-slate-500">The register keeps the file name and a fingerprint. It does not keep a copy of the file.</p>
-        </div>
-        <div data-source-place hidden class="mt-4">
-          <label class="block text-sm font-medium">Where the document already lives
-            <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
-          </label>
-          <p class="mt-1 text-xs text-slate-500">This place is not connected. Record the link or path. The file stays where it is.</p>
-        </div>
-      </div>
-      <div data-upload-panel="3" ${state.uploadStep === 3 ? '' : 'hidden'}>
-        <label class="mt-6 block text-sm font-medium">Evidence title
-          <input name="name" maxlength="160" placeholder="AI Risk Register" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
-        </label>
-        <label class="mt-4 block text-sm font-medium">Description
-          <textarea name="note" maxlength="500" rows="4" placeholder="What this document shows" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
-        </label>
-        <label class="mt-4 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
-          <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
-        </label>
-      </div>
-      <div data-upload-panel="4" ${state.uploadStep === 4 ? '' : 'hidden'}>
-        <div id="upload-summary" class="mt-5 rounded-xl bg-mist p-4 text-sm leading-relaxed text-slate-700"></div>
-      </div>
-      <div class="mt-5 flex items-center justify-between gap-3">
-        <button type="button" id="upload-back" class="rounded-lg border border-line px-4 py-2 text-sm ${state.uploadStep === 1 ? 'invisible' : ''}">Back</button>
-        <button type="button" id="upload-next" class="rounded-lg bg-[#1860C8] px-4 py-2 text-sm font-medium text-white ${state.uploadStep === 4 ? 'hidden' : ''}">Next</button>
-        <button type="submit" class="rounded-lg bg-[#1860C8] px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${state.uploadStep === 4 ? '' : 'hidden'}">Upload Evidence</button>
-      </div>
-    </form>`;
-  const form = document.getElementById('user-upload-form');
-  bindEvidenceForm(form);
-  if (state.uploadControl) {
-    const select = form.elements.controlId;
-    if (select) select.value = state.uploadControl;
-    syncAlso(form);
-  }
-  if (state.uploadStep === 4) fillUploadSummary(form);
+    ${intro}
+    <div class="mt-5 grid gap-3 lg:grid-cols-2">${dutyCards(mine)}</div>
+    ${dutyNote()}`;
 }
 
 function fillUploadSummary(form) {
@@ -1287,7 +1262,7 @@ function renderEvidenceDetail(item) {
         <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(control.judgement?.reason || '')}</p>
         <p class="mt-2 text-sm text-slate-600">${escapeHtml(control.judgement?.recommendation || '')}</p>
         ${sourceTrail(control.judgement || { sources: [] })}
-        <p class="mt-3 text-xs text-slate-500">This reading is calculated from the document on record. ${escapeHtml(person(control.reviewerId).name)} decides it. There is no separate model call.</p>
+        <p class="mt-3 text-xs text-slate-500">AI-assisted, human-controlled. This assessment uses the document on record and can identify a gap. ${escapeHtml(person(control.reviewerId).name)} makes the final decision.</p>
       </section>`).join('') || '<p class="text-sm text-slate-500">This document is not linked to a requirement.</p>';
   } else if (tab === 'history') {
     const ids = [item.id, ...item.controlIds];
@@ -1497,7 +1472,7 @@ function reviewCard(control) {
       ${judgement.recommendation ? `<p class="mt-2 text-sm text-slate-600"><span class="font-medium text-ink">Suggested action. </span>${escapeHtml(judgement.recommendation)}</p>` : ''}
       ${proposed}
       ${sourceTrail(judgement)}
-      <p class="mt-4 text-xs text-slate-500">Status is calculated from the file, the version, and whether a current review record is on file.</p>
+      <p class="mt-4 text-xs text-slate-500">AI-assisted, human-controlled. This reading can identify a gap. It does not replace your decision.</p>
       ${blocked ? `<p class="mt-4 rounded-lg bg-slate-50 px-3 py-3 text-sm">${escapeHtml(actor().name)} filed ${escapeHtml(filer.name)}. Reviewer permission does not allow a decision on that submission. ${escapeHtml(person(control.reviewerId).name)} can decide it.</p>` : `
       <form data-decision="${control.id}" class="mt-4">
         <label class="block text-sm font-medium">Note for the history
@@ -1712,7 +1687,9 @@ function paintChrome() {
   const templateOwner = document.querySelector('#template-form select[name="ownerId"]');
   const templateReviewer = document.querySelector('#template-form select[name="reviewerId"]');
   if (evidenceSelect && data) {
-    evidenceSelect.innerHTML = data.controls.map(controlChoice).join('');
+    const current = evidenceSelect.value;
+    evidenceSelect.innerHTML = uploadControlList().map(controlChoice).join('');
+    if (current && [...evidenceSelect.options].some((option) => option.value === current)) evidenceSelect.value = current;
   }
   if (ownerSelect && data) ownerSelect.innerHTML = personOptions(data.people);
   if (reviewerSelect && data) reviewerSelect.innerHTML = personOptions(reviewers());
@@ -1993,29 +1970,36 @@ async function load() {
   showApp();
 }
 
-function openEvidence(controlId) {
-  const controls = ws()?.controls || [];
+function openUploadDialog(controlId) {
+  const controls = uploadControlList();
   if (!controls.length) {
-    state.error = 'An admin has not added a requirement yet. A document can be checked after that.';
+    if (state.profile === 'uploader') {
+      state.page = 'upload';
+      state.flash = '';
+      state.error = '';
+      render();
+      return;
+    }
+    state.error = 'Add a requirement before a document can be checked.';
     state.flash = '';
     render();
     return;
   }
-  if (state.profile === 'uploader') {
-    state.page = 'upload';
-    state.uploadStep = 1;
-    state.uploadControl = controlId || '';
-    state.flash = '';
-    state.error = '';
-    render();
-    return;
-  }
-  const select = document.querySelector('#evidence-form select[name="controlId"]');
-  if (select && controlId) {
+  const form = document.getElementById('evidence-form');
+  const box = document.getElementById('evidence-fields');
+  box.innerHTML = evidenceFields(controls);
+  bindEvidenceForm(form);
+  const select = form.elements.controlId;
+  if (select && controlId && controls.some((control) => control.id === controlId)) {
     select.value = controlId;
-    syncAlso(select.form);
+    syncAlso(form);
   }
+  form.querySelector('.er-form-error')?.remove();
   document.getElementById('evidence-dialog').showModal();
+}
+
+function openEvidence(controlId) {
+  openUploadDialog(controlId);
 }
 
 function armButton(button, text) {
@@ -2449,7 +2433,7 @@ function unlockEvidenceForm(form) {
   if (button) {
     button.disabled = false;
     button.removeAttribute('aria-busy');
-    button.textContent = 'Upload document';
+    button.textContent = 'Upload evidence';
   }
   syncAlso(form);
 }
@@ -2651,12 +2635,7 @@ document.addEventListener('click', (event) => {
 });
 
 document.getElementById('header-upload')?.addEventListener('click', () => {
-  state.page = 'upload';
-  state.uploadStep = 1;
-  state.uploadControl = '';
-  state.flash = '';
-  state.error = '';
-  render();
+  openUploadDialog('');
 });
 
 document.getElementById('sign-out').addEventListener('click', async () => {
