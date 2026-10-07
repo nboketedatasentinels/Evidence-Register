@@ -753,8 +753,7 @@ function renderAdminHome() {
     ${banner()}
     ${noteCards()}
     ${ackCards()}
-    <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Admin · ${escapeHtml(org.id || 'ORG-001')}</p>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
+    <h1 class="text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
     <p class="mt-2 max-w-3xl text-sm text-slate-500">This page records who the organisation is, how it is structured, and who may own or review a requirement. People confirm their own name and email when they sign up. Saving this does not create evidence or tickets, and it does not approve a file.</p>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       ${fact('Framework', org.framework || 'ISO/IEC 42001')}
@@ -1666,7 +1665,7 @@ function paintChrome() {
   const helloTitle = document.getElementById('hello-title');
   if (helloTitle) helloTitle.textContent = named ? greeting() : 'Evidence Register';
   const helloBand = document.getElementById('hello-band');
-  const onHome = state.page === 'dashboard';
+  const onHome = state.page === 'dashboard' && state.profile !== 'admin';
   if (helloBand) helloBand.hidden = !onHome;
   const headerUpload = document.getElementById('header-upload');
   if (headerUpload) headerUpload.hidden = state.profile !== 'uploader';
