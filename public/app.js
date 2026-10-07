@@ -216,6 +216,24 @@ function card(title, body, extra = '') {
   return `<section class="rounded-xl border border-line bg-white ${extra}"><h2 class="border-b border-line px-5 py-4 text-sm font-semibold">${title}</h2><div class="px-5 py-4">${body}</div></section>`;
 }
 
+function noteCards() {
+  const notes = (ws()?.notifications || []).filter((row) => !row.readAt).slice(0, 4);
+  if (!notes.length) return '';
+  const rows = notes.map((row) => `
+    <button type="button" data-note="${escapeHtml(row.id)}" data-page="${escapeHtml(row.page || 'dashboard')}" class="block w-full border-t border-line px-5 py-3 text-left hover:bg-[#F4F8FE]">
+      <span class="text-sm leading-relaxed">${escapeHtml(row.text)}</span>
+      <span class="mt-1 block text-xs text-slate-500">${escapeHtml(whenTime(row.at))}</span>
+    </button>`).join('');
+  return `
+    <section class="mb-5 overflow-hidden rounded-xl border border-line bg-white">
+      <div class="flex items-center justify-between px-5 py-4">
+        <h2 class="text-sm font-semibold">Sent to you</h2>
+        <button type="button" id="note-read-page" class="text-xs font-medium text-brand">Mark read</button>
+      </div>
+      ${rows}
+    </section>`;
+}
+
 function banner() {
   if (!state.error && !state.flash) return '';
   const bad = Boolean(state.error);
@@ -322,6 +340,7 @@ function renderDashboard() {
       </section>`;
   pane.innerHTML = `
     ${banner()}
+    ${noteCards()}
     ${ackCards()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -392,6 +411,7 @@ function renderUploaderHome() {
       </section>`;
   pane.innerHTML = `
     ${banner()}
+    ${noteCards()}
     ${ackCards()}
     <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(framework)}</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(actor().name)}</h1>
@@ -500,6 +520,7 @@ function renderAdminHome() {
   ].filter(Boolean);
   pane.innerHTML = `
     ${banner()}
+    ${noteCards()}
     ${ackCards()}
     <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Admin · ${escapeHtml(org.id || 'ORG-001')}</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
@@ -1151,6 +1172,24 @@ function paintChrome() {
   if (reviewerSelect && data) reviewerSelect.innerHTML = personOptions(reviewers());
   if (templateOwner && data) templateOwner.innerHTML = personOptions(data.people);
   if (templateReviewer && data) templateReviewer.innerHTML = personOptions(reviewers());
+  paintNotes();
+}
+
+function paintNotes() {
+  const notes = ws()?.notifications || [];
+  const unread = notes.filter((row) => !row.readAt);
+  const count = document.getElementById('note-count');
+  const list = document.getElementById('note-list');
+  if (count) {
+    count.hidden = unread.length === 0;
+    count.textContent = unread.length > 9 ? '9+' : String(unread.length);
+  }
+  if (!list) return;
+  list.innerHTML = notes.slice(0, 8).map((row) => `
+    <button type="button" data-note="${escapeHtml(row.id)}" data-page="${escapeHtml(row.page || 'dashboard')}" class="block w-full rounded-lg px-2 py-2 text-left hover:bg-mist ${row.readAt ? 'opacity-60' : ''}">
+      <span class="text-sm leading-relaxed">${escapeHtml(row.text)}</span>
+      <span class="mt-1 block text-xs text-slate-500">${escapeHtml(whenTime(row.at))}</span>
+    </button>`).join('') || '<p class="px-2 py-3 text-sm text-slate-500">Nothing has been sent to you yet.</p>';
 }
 
 function render() {
@@ -1861,6 +1900,27 @@ document.getElementById('auth-switch').addEventListener('click', () => {
   state.authMode = state.authMode === 'signup' ? 'signin' : state.authMode === 'signin' ? 'signup' : 'signin';
   state.resetToken = '';
   showAuth();
+});
+
+document.addEventListener('click', (event) => {
+  const panel = document.getElementById('note-panel');
+  if (event.target.closest('#note-bell')) {
+    if (panel) panel.hidden = !panel.hidden;
+    return;
+  }
+  if (event.target.id === 'note-read' || event.target.id === 'note-read-page') {
+    post('/api/loop/notifications/read', { all: true });
+    return;
+  }
+  const note = event.target.closest('[data-note]');
+  if (note) {
+    const page = note.dataset.page;
+    if (page && navItems().some(([id]) => id === page)) state.page = page;
+    if (panel) panel.hidden = true;
+    post('/api/loop/notifications/read', { id: note.dataset.note });
+    return;
+  }
+  if (panel && !panel.hidden && !event.target.closest('#note-panel')) panel.hidden = true;
 });
 
 document.getElementById('sign-out').addEventListener('click', async () => {

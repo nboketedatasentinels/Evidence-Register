@@ -70,6 +70,20 @@ create table if not exists sessions (
   expires_at bigint not null
 );
 
+create table if not exists notifications (
+  id text primary key,
+  organisation_id text not null references organisations (id),
+  recipient_id text not null,
+  actor_id text not null default '',
+  body text not null default '',
+  page text not null default 'dashboard',
+  control_id text not null default '',
+  ticket_id text not null default '',
+  created_at timestamptz not null default now(),
+  read_at timestamptz
+);
+
+alter table notifications enable row level security;
 alter table invitations enable row level security;
 alter table acknowledgements enable row level security;
 alter table accounts enable row level security;
@@ -98,6 +112,7 @@ begin
   delete from people where organisation_id in (org_id, 'ORG-DS-001');
   delete from departments where organisation_id in (org_id, 'ORG-DS-001');
   delete from history where organisation_id in (org_id, 'ORG-DS-001');
+  delete from notifications where organisation_id in (org_id, 'ORG-DS-001');
   delete from organisations where id = 'ORG-DS-001' and id <> org_id;
 
   insert into organisations (
@@ -268,6 +283,18 @@ begin
     coalesce(a->>'userAgent', ''), coalesce(a->>'ip', '')
   from jsonb_array_elements(coalesce(payload->'acknowledgements', '[]'::jsonb)) a
   where coalesce(a->>'id', '') <> '';
+
+  insert into notifications (
+    id, organisation_id, recipient_id, actor_id, body, page, control_id, ticket_id, created_at, read_at
+  )
+  select
+    n->>'id', org_id, n->>'recipientId', coalesce(n->>'actorId', ''),
+    coalesce(n->>'text', ''), coalesce(nullif(n->>'page', ''), 'dashboard'),
+    coalesce(n->>'controlId', ''), coalesce(n->>'ticketId', ''),
+    coalesce(nullif(n->>'at', '')::timestamptz, now()),
+    nullif(n->>'readAt', '')::timestamptz
+  from jsonb_array_elements(coalesce(payload->'notifications', '[]'::jsonb)) n
+  where coalesce(n->>'id', '') <> '' and coalesce(n->>'recipientId', '') <> '';
 end;
 $fn$;
 

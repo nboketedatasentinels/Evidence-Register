@@ -213,7 +213,18 @@
               <input id="q" type="search" placeholder="Search controls, evidence, tickets" class="w-full rounded-lg border border-line bg-mist py-2 pl-9 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-brand" />
             </label>
           </div>
-          <div class="flex items-center gap-3 text-sm">
+          <div class="relative flex items-center gap-3 text-sm">
+            <button type="button" id="note-bell" class="relative rounded-lg border border-line p-2 text-slate-600" aria-label="Notifications">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+              <span id="note-count" hidden class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white"></span>
+            </button>
+            <div id="note-panel" hidden class="absolute right-0 top-11 z-20 w-80 rounded-xl border border-line bg-white p-3 shadow-lg">
+              <div class="flex items-center justify-between px-2">
+                <p class="text-sm font-semibold">Notifications</p>
+                <button type="button" id="note-read" class="text-xs font-medium text-brand">Mark read</button>
+              </div>
+              <div id="note-list" class="mt-2 max-h-80 overflow-y-auto"></div>
+            </div>
             <span id="signed-name" class="font-medium"></span>
             <button type="button" id="sign-out" class="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-slate-600">Sign out</button>
           </div>
@@ -338,6 +349,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=38"></script>
+    <script src="/app.js?v=39"></script>
   </body>
 </html>

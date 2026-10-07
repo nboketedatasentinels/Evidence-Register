@@ -336,7 +336,7 @@ async function actorBody(req) {
 
 app.get('/api/loop', (req, res) => loopResult(res, async () => {
   const body = await actorBody(req);
-  return { workspace: loop.read(), actorId: body.actorId };
+  return { workspace: loop.read(body.actorId), actorId: body.actorId };
 }));
 
 app.post('/api/auth/signup', (req, res) => loopResult(res, () => loop.register({
@@ -363,6 +363,7 @@ app.post('/api/loop/controls', (req, res) => loopResult(res, async () => loop.ad
 app.post('/api/loop/templates', (req, res) => loopResult(res, async () => loop.applyTemplate(await actorBody(req))));
 app.post('/api/loop/fix', (req, res) => loopResult(res, async () => loop.submitFix(await actorBody(req))));
 app.post('/api/loop/verify', (req, res) => loopResult(res, async () => loop.verify(await actorBody(req))));
+app.post('/api/loop/notifications/read', (req, res) => loopResult(res, async () => loop.readNotification(await actorBody(req))));
 app.post('/api/loop/organisation', (req, res) => loopResult(res, async () => loop.setOrganisation(await actorBody(req))));
 app.post('/api/loop/reminders', (req, res) => loopResult(res, async () => loop.setReminders(await actorBody(req))));
 app.post('/api/loop/people', (req, res) => loopResult(res, async () => loop.addPerson(await actorBody(req))));
