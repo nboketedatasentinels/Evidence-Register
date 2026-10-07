@@ -541,9 +541,7 @@ function controlTitle(control) {
 }
 
 function noDutyCopy() {
-  if (!(ws().controls || []).length) {
-    return `<h2 class="text-base font-semibold">No requirement has been configured yet.</h2><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">An administrator needs to add the applicable ISO/IEC 42001 requirements and assign responsibilities before you can submit evidence.</p>`;
-  }
+  if (!(ws().controls || []).length) return '';
   return `<h2 class="text-base font-semibold">No evidence is currently required from you.</h2><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Your assigned controls will appear here once an administrator has configured the organisation's governance requirements and assigned responsibilities.</p>`;
 }
 
@@ -624,7 +622,7 @@ function renderUploaderHome() {
     ${banner()}
     ${noteCards()}
     ${ackCards()}
-    ${ownedControls().length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Your responsibilities</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(ownedControls())}</div></section>` : `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${noDutyCopy()}</section>`}
+    ${ownedControls().length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Your responsibilities</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(ownedControls())}</div></section>` : (noDutyCopy() ? `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${noDutyCopy()}</section>` : '')}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
@@ -1100,7 +1098,8 @@ function renderUpload() {
   const mine = ownedControls();
   const intro = `<h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload a document to provide evidence for an assigned ISO/IEC 42001 requirement. Evidence is assessed against the relevant control, and an authorised reviewer makes the final decision.</p>`;
   if (!mine.length) {
-    pane.innerHTML = `${banner()}${intro}<div class="mt-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${noDutyCopy()}</div>${dutyNote()}`;
+    const empty = noDutyCopy();
+    pane.innerHTML = `${banner()}${intro}${empty ? `<div class="mt-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${empty}</div>` : ''}${dutyNote()}`;
     return;
   }
   pane.innerHTML = `
