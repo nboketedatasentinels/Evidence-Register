@@ -6,7 +6,7 @@ const AUTH_COPY = {
   admin: 'This account starts with the admin profile. It sets up the organisation, people, and requirements.',
 };
 const PROFILE_NOTE = {
-  uploader: 'Files evidence and works the tickets assigned to them.',
+  uploader: 'Uploads a document against an ISO/IEC 42001 requirement.',
   reviewer: 'Decides the finding. Cannot decide a file they uploaded.',
   admin: 'Establishes the organisation: identity, structure, people, and who may review.',
 };
@@ -350,32 +350,61 @@ function renderDashboard() {
     </section>`;
 }
 
+function controlChoice(control) {
+  const text = control.requirement || control.expected || control.id;
+  const short = text.length > 110 ? `${text.slice(0, 107)}…` : text;
+  return `<option value="${escapeHtml(control.id)}">${escapeHtml(short)}</option>`;
+}
+
 function renderUploaderHome() {
-  const mine = (ws().controls || []).filter((control) => control.filerId === state.actorId || control.ownerId === state.actorId || (ws().tickets || []).some((ticket) => ticket.controlId === control.id && ticket.ownerId === state.actorId && ticket.status !== 'resolved'));
-  const rows = mine.map((control) => `
-    <article class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
-      <div>
-        <p class="text-sm font-medium">${escapeHtml(control.id)}</p>
-        <p class="mt-1 text-sm text-slate-600">${escapeHtml(control.expected)}</p>
-      </div>
-      ${pill(control.agreed)}
-    </article>`).join('');
+  const framework = ws().organisation?.framework || 'ISO/IEC 42001';
+  const all = ws().controls || [];
   const assigned = (ws().tickets || []).filter((ticket) => ticket.ownerId === state.actorId && ticket.status !== 'resolved');
+  const rows = all.map((control) => `
+    <article class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-medium">${escapeHtml(control.expected || control.id)}</p>
+        <p class="mt-1 text-sm leading-relaxed text-slate-600">${escapeHtml(control.requirement)}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        ${pill(control.agreed)}
+        <button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Use this requirement</button>
+      </div>
+    </article>`).join('');
+  const upload = all.length
+    ? `<form id="user-evidence-form" class="mt-5 rounded-xl border border-line bg-white p-5">
+        <h2 class="text-sm font-semibold">Upload a document</h2>
+        <p class="mt-1 text-sm text-slate-500">Choose the requirement this document supports. A different person checks it. You cannot approve your own file.</p>
+        <label class="mt-4 block text-sm font-medium">Document name
+          <input name="name" required maxlength="160" placeholder="AI_Risk_Assessment_2026.pdf" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        </label>
+        <label class="mt-3 block text-sm font-medium">Requirement
+          <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">${all.map(controlChoice).join('')}</select>
+        </label>
+        <label class="mt-3 block text-sm font-medium">What the document shows
+          <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand"></textarea>
+        </label>
+        <button type="submit" class="mt-4 inline-flex items-center justify-center rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70">Upload document</button>
+      </form>`
+    : `<section class="mt-5 rounded-xl border border-line bg-white p-5">
+        <h2 class="text-sm font-semibold">Upload a document</h2>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">A document is checked against a requirement. An admin has not added one from the ${escapeHtml(framework)} list yet, so there is nothing to check a file against.</p>
+      </section>`;
   pane.innerHTML = `
     ${banner()}
     ${ackCards()}
-    <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Uploader</p>
+    <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(framework)}</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(actor().name)}</h1>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">You can file evidence and work tickets assigned to you.</p>
-    <div class="mt-5 grid gap-4 sm:grid-cols-2">
-      ${fact('Submissions you can see', String(mine.length))}
-      ${fact('Tickets assigned to you', String(assigned.length))}
-    </div>
+    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">This page is for the requirements this organisation is keeping under ${escapeHtml(framework)}. Upload a document against one of them. A named person checks it. This is not an internal audit or a certificate.</p>
+    ${upload}
     <section class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
-      <h2 class="px-5 py-4 text-sm font-semibold">Controls that involve you</h2>
-      ${rows || '<p class="border-t border-line px-5 py-6 text-sm text-slate-500">Nothing is assigned to you yet.</p>'}
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+        <h2 class="text-sm font-semibold">Requirements</h2>
+        <p class="text-sm text-slate-500">${assigned.length ? `${assigned.length} ticket${assigned.length === 1 ? '' : 's'} assigned to you` : 'No ticket is assigned to you'}</p>
+      </div>
+      ${rows || `<p class="border-t border-line px-5 py-6 text-sm text-slate-500">No ${escapeHtml(framework)} requirement is on the register yet.</p>`}
     </section>
-    <button type="button" data-go="tickets" class="mt-5 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Open your tickets</button>`;
+    <button type="button" data-go="tickets" class="mt-5 text-sm font-medium text-brand">Open your tickets</button>`;
 }
 
 function field(label, name, value, extra = '') {
@@ -758,18 +787,13 @@ function chainCell(label, title, detail) {
   return `<div class="rounded-xl border border-line bg-white px-4 py-3"><p class="text-xs text-slate-500">${escapeHtml(label)}</p><p class="mt-1 text-sm font-semibold">${escapeHtml(title)}</p><p class="mt-1 text-xs leading-relaxed text-slate-500">${escapeHtml(detail)}</p></div>`;
 }
 
-function relevant(control) {
-  if (state.profile !== 'uploader') return true;
-  return control.filerId === state.actorId || control.ownerId === state.actorId || (ws().tickets || []).some((ticket) => ticket.controlId === control.id && ticket.ownerId === state.actorId);
-}
-
 function renderControls() {
   const reviewerCell = (control) => {
     if (state.profile !== 'admin') return `<td class="px-5 py-3 text-sm">${escapeHtml(person(control.reviewerId).name)}</td>`;
     const options = people().filter((row) => holds(row, 'reviewer')).map((row) => `<option value="${row.id}" ${row.id === control.reviewerId ? 'selected' : ''}>${escapeHtml(row.name)}</option>`).join('');
     return `<td class="px-5 py-3"><select data-assign-reviewer="${control.id}" class="rounded-lg border border-line bg-white px-2 py-1.5 text-sm">${options}</select></td>`;
   };
-  const rows = controls().filter(relevant).map((control) => `
+  const rows = controls().map((control) => `
     <tr class="border-t border-line align-top">
       <td class="whitespace-nowrap px-5 py-3 text-sm font-medium">${escapeHtml(control.id)}</td>
       <td class="px-5 py-3 text-sm">${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
@@ -777,22 +801,27 @@ function renderControls() {
       ${reviewerCell(control)}
       <td class="px-5 py-3">${pill(control.agreed)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${control.evidenceIds.length ? control.evidenceIds.length : 'None'}</td>
+      ${state.profile === 'uploader' ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : ''}
     </tr>`).join('');
+  const framework = ws().organisation?.framework || 'ISO/IEC 42001';
+  const intro = state.profile === 'uploader'
+    ? `These are the ${framework} requirements this organisation is keeping. Upload a document against one of them. A different person checks it.`
+    : 'These are the requirements this organisation is keeping. Add one from an ISO/IEC 42001 template, or write a custom requirement. A requirement with no file stays at no evidence.';
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation.framework)}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight">Controls</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">These are the requirements this organisation is keeping. Add one from an ISO/IEC 42001 template, or write a custom requirement. A requirement with no file stays at no evidence.</p>
+        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(framework)}</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight">Requirements</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">${escapeHtml(intro)}</p>
       </div>
       ${state.profile === 'admin' ? '<button type="button" id="open-control" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Custom requirement</button>' : ''}
     </div>
     ${renderTemplates()}
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
       <table class="w-full text-left">
-        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3 font-medium">Requirement</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Reviewer</th><th class="px-5 py-3 font-medium">Agreed</th><th class="px-5 py-3 font-medium">Files</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="6" class="px-5 py-8 text-sm text-slate-500">Nothing matches.</td></tr>`}</tbody>
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3 font-medium">Requirement</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Reviewer</th><th class="px-5 py-3 font-medium">Agreed</th><th class="px-5 py-3 font-medium">Files</th>${state.profile === 'uploader' ? '<th class="px-5 py-3"></th>' : ''}</tr></thead>
+        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 7 : 6}" class="px-5 py-8 text-sm text-slate-500">${(ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -834,10 +863,11 @@ function renderEvidence() {
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Evidence</h1>
-        <p class="mt-2 text-sm text-slate-500">Manual upload is the path in this version. Drive, SharePoint, and a server folder are not connected.</p>
+        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation?.framework || 'ISO/IEC 42001')}</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight">Evidence</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">A document is recorded against a requirement. Drive, SharePoint, and a server folder are not connected.</p>
       </div>
-      ${state.profile === 'uploader' ? '<button type="button" id="open-evidence" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Add evidence</button>' : ''}
+      ${state.profile === 'uploader' ? '<button type="button" data-open-evidence class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload a document</button>' : ''}
     </div>
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
       <section class="rounded-xl border border-line bg-white p-5">
@@ -1115,7 +1145,7 @@ function paintChrome() {
   const templateOwner = document.querySelector('#template-form select[name="ownerId"]');
   const templateReviewer = document.querySelector('#template-form select[name="reviewerId"]');
   if (evidenceSelect && data) {
-    evidenceSelect.innerHTML = data.controls.map((control) => `<option value="${control.id}">${escapeHtml(control.id)} · ${escapeHtml(control.expected)}</option>`).join('');
+    evidenceSelect.innerHTML = data.controls.map(controlChoice).join('');
   }
   if (ownerSelect && data) ownerSelect.innerHTML = personOptions(data.people);
   if (reviewerSelect && data) reviewerSelect.innerHTML = personOptions(reviewers());
@@ -1369,6 +1399,25 @@ async function load() {
   showApp();
 }
 
+function openEvidence(controlId) {
+  const controls = ws()?.controls || [];
+  if (!controls.length) {
+    state.error = 'An admin has not added a requirement yet. A document can be checked after that.';
+    state.flash = '';
+    render();
+    return;
+  }
+  const inline = document.querySelector('#user-evidence-form select[name="controlId"]');
+  if (inline) {
+    if (controlId) inline.value = controlId;
+    inline.closest('form')?.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  const select = document.querySelector('#evidence-form select[name="controlId"]');
+  if (select && controlId) select.value = controlId;
+  document.getElementById('evidence-dialog').showModal();
+}
+
 function armButton(button, text) {
   if (!button || button.disabled) return false;
   button.disabled = true;
@@ -1534,7 +1583,11 @@ pane.addEventListener('click', (event) => {
   if (event.target.id === 'toggle-reminders') {
     post('/api/loop/reminders', { reminders: !ws().organisation.reminders });
   }
-  if (event.target.id === 'open-evidence') document.getElementById('evidence-dialog').showModal();
+  const upload = event.target.closest('[data-open-evidence]');
+  if (upload) {
+    openEvidence(upload.dataset.control || '');
+    return;
+  }
   if (event.target.id === 'open-control') document.getElementById('control-dialog').showModal();
   const useTemplate = event.target.closest('[data-use-template]');
   if (useTemplate && !useTemplate.disabled) {
@@ -1549,6 +1602,14 @@ pane.addEventListener('click', (event) => {
 });
 
 pane.addEventListener('submit', (event) => {
+  if (event.target.id === 'user-evidence-form') {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    const button = event.target.querySelector('[type="submit"]');
+    if (!armButton(button, 'Uploading…')) return;
+    post('/api/loop/evidence', { name: data.get('name'), controlId: data.get('controlId'), note: data.get('note') });
+    return;
+  }
   const editForm = event.target.closest('[data-edit-form]');
   if (editForm) {
     event.preventDefault();
