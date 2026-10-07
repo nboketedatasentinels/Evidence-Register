@@ -497,9 +497,6 @@ function evidenceFields(controls = uploadControlList()) {
     <label class="mt-4 block text-sm font-medium">Evidence title
       <input name="name" required maxlength="160" placeholder="AI risk register" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
     </label>
-    <label class="mt-4 block text-sm font-medium">What this document shows
-      <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
-    </label>
     <div class="mt-4 rounded-xl border border-line bg-mist px-4 py-3 text-sm">
       <p class="font-medium">Date and time</p>
       <p class="mt-1 font-normal text-slate-600">Recorded automatically when you upload. <span data-recorded-at>${escapeHtml(clockText())}</span></p>
@@ -1273,9 +1270,6 @@ function userUploadFields(controls) {
       <label class="mt-4 block text-sm font-medium">Evidence title
         <input name="name" required maxlength="160" placeholder="AI Policy" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
       </label>
-      <label class="mt-4 block text-sm font-medium">What does this evidence demonstrate?
-        <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
-      </label>
     </section>
     ${also ? `<section class="mt-6"><h2 class="text-sm font-semibold">3. Link to other requirements</h2>${also}</section>` : ''}
     <section class="mt-6">
@@ -1344,7 +1338,6 @@ function fillUploadSummary(form) {
     ['Also supports', also.length ? also.join(', ') : 'None'],
     ['Recorded', clockText()],
     ['Next review', data.get('reviewDue') ? when(data.get('reviewDue')) : 'Follows the requirement'],
-    ['What it shows', data.get('note') || ''],
   ];
   box.innerHTML = rows.map(([label, value]) => `<p class="mt-2 first:mt-0"><span class="text-slate-500">${escapeHtml(label)}. </span>${escapeHtml(value)}</p>`).join('');
 }
@@ -1359,7 +1352,6 @@ function uploadStepReady(form, step) {
   }
   if (step === 3) {
     if (!String(form.elements.name?.value || '').trim()) return 'Give the document a title.';
-    if (!String(form.elements.note?.value || '').trim()) return 'Add a description.';
   }
   return '';
 }
@@ -1501,7 +1493,7 @@ function renderEvidenceDetail(item) {
       ['Last updated', whenTime(item.uploadedAt)],
     ];
     body = `<div class="grid gap-4 lg:grid-cols-[1fr_16rem]">
-      <section class="rounded-2xl border border-line bg-white p-5"><dl class="grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl><p class="mt-4 text-sm leading-relaxed text-slate-600">${escapeHtml(item.note || '')}</p></section>
+      <section class="rounded-2xl border border-line bg-white p-5"><dl class="grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
       <aside class="rounded-2xl border border-line bg-white p-5">
         <p class="text-sm font-semibold">Fingerprint</p>
         <p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(hashText || 'Not recorded')}</p>
@@ -1587,11 +1579,10 @@ function renderEvidence() {
       </td>
       <td class="px-5 py-3 text-sm">${avatar(item.uploadedBy)}</td>
       <td class="whitespace-nowrap px-5 py-3 text-sm text-slate-600">${escapeHtml(when(item.uploadedAt))}</td>
-      <td class="px-5 py-3 text-sm text-slate-600">${escapeHtml(item.note)}</td>
       <td class="whitespace-nowrap px-5 py-3 text-sm">${escapeHtml(item.controlIds.join(', '))}</td>
       <td class="px-5 py-3 text-right"><button type="button" data-evidence="${item.id}" class="text-sm font-medium text-brand">${state.evidenceId === item.id ? 'Hide' : 'Open'}</button></td>
     </tr>
-    ${state.evidenceId === item.id ? `<tr class="border-t border-line bg-[#FAFBFC]"><td colspan="6" class="px-5 py-4 text-sm"><p><span class="text-slate-500">${item.section === 'File from this computer' ? 'Fingerprint of the file' : 'Fingerprint of the recorded place'}. </span><span class="font-medium">${escapeHtml(item.hash)}</span></p><p class="mt-1"><span class="text-slate-500">Where it lives. </span>${escapeHtml(item.source || 'Not recorded')}${item.location ? ` · ${escapeHtml(item.location)}` : ''}</p><p class="mt-1"><span class="text-slate-500">Review date. </span>${escapeHtml(item.reviewDue || 'Not set')}</p></td></tr>` : ''}`).join('');
+    ${state.evidenceId === item.id ? `<tr class="border-t border-line bg-[#FAFBFC]"><td colspan="5" class="px-5 py-4 text-sm"><p><span class="text-slate-500">${item.section === 'File from this computer' ? 'Fingerprint of the file' : 'Fingerprint of the recorded place'}. </span><span class="font-medium">${escapeHtml(item.hash)}</span></p><p class="mt-1"><span class="text-slate-500">Where it lives. </span>${escapeHtml(item.source || 'Not recorded')}${item.location ? ` · ${escapeHtml(item.location)}` : ''}</p><p class="mt-1"><span class="text-slate-500">Review date. </span>${escapeHtml(item.reviewDue || 'Not set')}</p></td></tr>` : ''}`).join('');
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -1622,9 +1613,9 @@ function renderEvidence() {
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
       <table class="w-full text-left">
         <thead class="text-xs uppercase tracking-wide text-slate-500"><tr>
-          <th class="px-5 py-3 font-medium">Name</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Date</th><th class="px-5 py-3 font-medium">What it shows</th><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3"></th>
+          <th class="px-5 py-3 font-medium">Name</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Date</th><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3"></th>
         </tr></thead>
-        <tbody>${rows || `<tr><td colspan="6" class="px-5 py-8 text-sm text-slate-500">${state.query ? 'Nothing matches.' : 'No evidence has been filed.'}</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="5" class="px-5 py-8 text-sm text-slate-500">${state.query ? 'Nothing matches.' : 'No evidence has been filed.'}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
