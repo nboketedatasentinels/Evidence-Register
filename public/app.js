@@ -1167,7 +1167,10 @@ function showAuth(message) {
       ? 'Need an account? Create one'
       : 'Back to sign in';
   document.getElementById('signup-submit').textContent = 'Create account';
-  document.getElementById('invite-summary').hidden = true;
+  document.getElementById('password-label').textContent = 'Password';
+  document.getElementById('confirm-field').hidden = true;
+  const signup = document.getElementById('signup-form');
+  signup.elements.email.readOnly = false;
   ['name-field', 'email-field', 'job-field', 'unit-field'].forEach((id) => {
     document.getElementById(id).hidden = false;
   });
@@ -1203,24 +1206,21 @@ function applyInvite() {
   form.elements.unit.value = unit;
   form.elements.job.value = invite.job || '';
   if (form.elements.ageRange) form.elements.ageRange.value = invite.ageRange || '';
-  document.getElementById('invite-name').textContent = invite.name || '—';
-  document.getElementById('invite-email').textContent = invite.email || '—';
-  document.getElementById('invite-role').textContent = VIEW_NAME[invite.profile] || 'User';
-  document.getElementById('invite-unit').textContent = invite.unit || 'Not recorded';
-  document.getElementById('invite-age').textContent = invite.ageRange || 'Not recorded';
-  document.getElementById('invite-summary').hidden = false;
-  ['name-field', 'email-field', 'job-field', 'unit-field', 'age-field'].forEach((id) => {
+  ['name-field', 'job-field', 'unit-field', 'age-field'].forEach((id) => {
     document.getElementById(id).hidden = true;
   });
-  document.getElementById('auth-title').textContent = 'Your details';
+  document.getElementById('email-field').hidden = false;
+  document.getElementById('password-label').textContent = 'Set password';
+  document.getElementById('confirm-field').hidden = false;
+  document.getElementById('auth-title').textContent = 'Sign in';
   document.getElementById('signup-submit').textContent = 'Sign in';
   document.getElementById('auth-switch').hidden = true;
   const box = document.getElementById('sign-draw');
   box.hidden = !invite.signatureRequired;
   if (invite.signatureRequired) bindSignPad();
   document.getElementById('auth-copy').textContent = invite.signatureRequired
-    ? 'These details are already on the register. Draw your signature, choose a password, and sign in.'
-    : 'These details are already on the register. Choose a password and sign in.';
+    ? 'Draw your signature, set a password, and sign in.'
+    : 'Set a password for this email and sign in.';
 }
 
 function bindSignPad() {
@@ -1703,7 +1703,8 @@ async function authenticate(url, form) {
     return;
   }
   const data = new FormData(form);
-  if (url.endsWith('/reset') && data.get('password') !== data.get('confirm')) {
+  const confirming = url.endsWith('/reset') || (url.endsWith('/signup') && state.invite);
+  if (confirming && data.get('password') !== data.get('confirm')) {
     showAuth('The two passwords do not match.');
     return;
   }
