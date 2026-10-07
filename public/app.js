@@ -428,7 +428,6 @@ function assignedControls() {
 }
 
 function uploadControlList() {
-  if (state.profile === 'uploader') return assignedControls();
   return ws()?.controls || [];
 }
 
@@ -720,7 +719,7 @@ function renderUploaderHome() {
     ${banner()}
     ${noteCards()}
     ${all.some((control) => control.ownerId === state.actorId) ? `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm"><h2 class="text-sm font-semibold">Responsibilities</h2><p class="mt-1 max-w-2xl text-sm text-slate-500">Acknowledge a requirement only when you are the evidence owner. This does not approve the requirement or the evidence.</p>${responsibilityTable(all.filter((control) => control.ownerId === state.actorId), true)}</section>` : ''}
-    ${assignedControls().length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Your assigned requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(assignedControls())}</div></section>` : ''}
+    ${all.length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(all)}</div></section>` : ''}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
@@ -1135,8 +1134,7 @@ function renderControls() {
     const options = people().filter((row) => holds(row, 'reviewer')).map((row) => `<option value="${row.id}" ${row.id === control.reviewerId ? 'selected' : ''}>${escapeHtml(row.name)}</option>`).join('');
     return `<td class="px-5 py-3"><select data-assign-reviewer="${control.id}" class="rounded-lg border border-line bg-white px-2 py-1.5 text-sm">${options}</select></td>`;
   };
-  const listed = state.profile === 'uploader' ? controls().filter((control) => control.ownerId === state.actorId) : controls();
-  const rows = listed.map((control) => `
+  const rows = controls().map((control) => `
     <tr class="border-t border-line align-top">
       <td class="whitespace-nowrap px-5 py-3 text-sm font-medium">${escapeHtml(control.id)}</td>
       <td class="px-5 py-3 text-sm">${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
@@ -1144,11 +1142,11 @@ function renderControls() {
       ${reviewerCell(control)}
       <td class="px-5 py-3">${pill(control.agreed)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${control.evidenceIds.length ? control.evidenceIds.length : 'None'}</td>
-      ${state.profile === 'uploader' && control.ownerId === state.actorId ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : (state.profile === 'uploader' ? '<td class="px-5 py-3"></td>' : '')}
+      ${state.profile === 'uploader' ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : ''}
     </tr>`).join('');
   const framework = ws().organisation?.framework || 'ISO/IEC 42001';
   const intro = state.profile === 'uploader'
-    ? `These are the requirements assigned to you. Submit evidence against one of them. An authorised reviewer makes the final decision.`
+    ? `These are the ${framework} requirements on this control set. Submit evidence against one of them. The named reviewer is notified and makes the final decision.`
     : 'These are the requirements this organisation is keeping. Add one from an ISO/IEC 42001 template, or write a custom requirement. A requirement with no file stays at no evidence.';
   pane.innerHTML = `
     ${banner()}
@@ -1164,7 +1162,7 @@ function renderControls() {
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
       <table class="w-full text-left">
         <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3 font-medium">Requirement</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Reviewer</th><th class="px-5 py-3 font-medium">Agreed</th><th class="px-5 py-3 font-medium">Files</th>${state.profile === 'uploader' ? '<th class="px-5 py-3"></th>' : ''}</tr></thead>
-        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 7 : 6}" class="px-5 py-8 text-sm text-slate-500">${state.profile === 'uploader' ? 'No requirement is assigned to you yet.' : ((ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`)}</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 7 : 6}" class="px-5 py-8 text-sm text-slate-500">${(ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1200,13 +1198,25 @@ function whatNext() {
 
 function submissionReceipt(item) {
   const primary = controlById(item.controlIds?.[0]);
-  const reviewer = person(primary?.reviewerId).name;
+  const names = [...new Set((item.controlIds || []).map((id) => controlById(id)?.reviewerId).filter(Boolean))].map((id) => person(id).name);
+  const reviewer = names[0] || 'The reviewer';
+  const notified = names.length > 1
+    ? `${names.join(' and ')} have been notified. They will review this evidence and make the final decision.`
+    : `${reviewer} has been notified. They will review this evidence and make the final decision.`;
   const also = (item.controlIds || []).filter((id) => id !== primary?.id);
   return `
-    <section class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
-      <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">Evidence submitted</p>
-      <h2 class="mt-2 text-xl font-semibold tracking-tight">${escapeHtml(item.name)}</h2>
-      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+    <section class="mt-6 max-w-3xl overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+      <div class="flex items-start gap-4 border-b border-[#D5E4FA] bg-[#F4F8FE] px-6 py-5">
+        <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1860C8] text-white" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg>
+        </span>
+        <div>
+          <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">Evidence submitted</p>
+          <h2 class="mt-1 text-xl font-semibold tracking-tight">${escapeHtml(item.name)}</h2>
+          <p class="mt-2 text-sm leading-relaxed text-[#163A66]">${escapeHtml(notified)} The notification is in their Evidence Register queue.</p>
+        </div>
+      </div>
+      <dl class="grid gap-4 px-6 py-5 text-sm sm:grid-cols-2">
         <div><dt class="text-slate-500">Requirement</dt><dd class="mt-1 font-medium">${escapeHtml(primary ? requirementLabel(primary) : item.controlIds?.[0] || '—')}</dd></div>
         <div><dt class="text-slate-500">Also supports</dt><dd class="mt-1 font-medium">${escapeHtml(also.length ? also.join(', ') : 'None')}</dd></div>
         <div><dt class="text-slate-500">Submitted by</dt><dd class="mt-1 font-medium">${escapeHtml(person(item.uploadedBy).name)}</dd></div>
@@ -1214,20 +1224,26 @@ function submissionReceipt(item) {
         <div><dt class="text-slate-500">Fingerprint</dt><dd class="mt-1 font-medium">${escapeHtml(hashLine(item.hash))}</dd></div>
         <div><dt class="text-slate-500">Version</dt><dd class="mt-1 font-medium">${escapeHtml(String(item.version))}.0</dd></div>
         <div><dt class="text-slate-500">Submitted</dt><dd class="mt-1 font-medium">${escapeHtml(whenTime(item.uploadedAt))}</dd></div>
-        <div><dt class="text-slate-500">Status</dt><dd class="mt-1"><span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Awaiting reviewer</span></dd></div>
+        <div><dt class="text-slate-500">Status</dt><dd class="mt-1"><span class="inline-flex rounded-full bg-[#E7EEF8] px-2.5 py-0.5 text-xs font-medium text-[#1860C8]">Awaiting review</span></dd></div>
       </dl>
-      <div class="mt-5 rounded-xl border border-line bg-mist px-4 py-4">
-        <h3 class="text-sm font-semibold">AI assessment</h3>
-        <p class="mt-2 text-sm leading-relaxed text-slate-600">The assessment uses the document on record and can identify a gap. ${escapeHtml(reviewer)} reviews the evidence and the assessment, then makes the final decision.</p>
+      <div class="mx-6 mb-6 rounded-xl border border-line bg-mist px-4 py-4">
+        <h3 class="text-sm font-semibold">What happens next</h3>
+        <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-slate-600">
+          <li>The evidence is on record, with its fingerprint and version.</li>
+          <li>${escapeHtml(reviewer)} reviews the evidence and the assessment.</li>
+          <li>${escapeHtml(reviewer)} makes the final decision.</li>
+        </ol>
       </div>
-      <button type="button" data-upload-reset class="mt-5 rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white">Submit another</button>
+      <div class="flex justify-end border-t border-line px-6 py-4">
+        <button type="button" data-upload-reset class="rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white">Submit another</button>
+      </div>
     </section>`;
 }
 
 function userUploadFields(controls) {
   const options = controls.map((control) => `<option value="${escapeHtml(control.id)}">${escapeHtml(requirementLabel(control))}</option>`).join('');
   const also = controls.length > 1
-    ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can support more than one of your assigned requirements.</p><div class="mt-2 space-y-1.5">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(requirementLabel(control))}</span></label>`).join('')}</div></fieldset>`
+    ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can support more than one requirement.</p><div class="mt-2 max-h-40 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(requirementLabel(control))}</span></label>`).join('')}</div></fieldset>`
     : '';
   return `
     <section>
@@ -1291,18 +1307,18 @@ function userUploadFields(controls) {
 }
 
 function renderUpload() {
-  const controls = assignedControls();
+  const controls = ws()?.controls || [];
   const receipt = (ws()?.evidence || []).find((item) => item.id === state.receiptId);
   const intro = `
     <h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1>
-    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload evidence for one of your assigned requirements. AI will assess the evidence, and an authorised reviewer makes the final decision.</p>
+    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Submit evidence for a requirement on this control set. The named reviewer is notified and makes the final decision.</p>
     <p class="mt-4 max-w-2xl text-sm text-slate-500"><span class="font-medium text-ink">AI-assisted, human-controlled. </span>AI can analyse evidence, identify potential gaps and recommend actions. It does not make the final governance decision.</p>`;
   if (receipt) {
-    pane.innerHTML = `${banner()}${intro}${submissionReceipt(receipt)}${whatNext()}`;
+    pane.innerHTML = `${banner()}${submissionReceipt(receipt)}`;
     return;
   }
   if (!controls.length) {
-    pane.innerHTML = `${banner()}${intro}<p class="mt-5 max-w-2xl text-sm text-slate-600">No requirement is assigned to you yet. An administrator names the evidence owner on each requirement.</p>`;
+    pane.innerHTML = `${banner()}${intro}<p class="mt-5 max-w-2xl text-sm text-slate-600">No requirement is on the control set yet.</p>`;
     return;
   }
   pane.innerHTML = `
