@@ -543,7 +543,7 @@ function renderUploaderHome() {
   const health = all.length ? Math.round((met / all.length) * 100) : 0;
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const thisWeek = files.filter((item) => new Date(item.uploadedAt).getTime() >= weekAgo).length;
-  const activity = (ws().history || []).slice(0, 5).map((row) => `
+  const activity = (ws().history || []).map((row) => `
     <li class="flex items-start gap-3 border-t border-line py-3">
       <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#E4EAF1] text-[#5C6E82]">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
@@ -566,7 +566,7 @@ function renderUploaderHome() {
       go: 'evidence',
       evidence: item.id,
     })),
-  ].slice(0, 5);
+  ];
   const upcomingRows = upcoming.map((row) => `
     <li class="flex items-start gap-3 border-t border-line py-3">
       <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${row.late ? 'bg-[#5C6E82]' : 'bg-[#B7C3D0]'}"></span>
@@ -588,13 +588,13 @@ function renderUploaderHome() {
       <p class="mt-1 text-sm text-slate-500">Here's what's happening with your evidence and governance.</p>
     </div>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(framework)}</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue} overdue</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#1860C8]" style="width:${health}%"></div></div></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E3EAF3] text-[#0E3356]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(framework)}</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#DCE7F6] text-[#1860C8]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F0E8DC] text-[#6B4F2C]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4E8ED] text-[#2C3C4C]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue} overdue</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#DCE7F6] text-[#1860C8]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#1860C8]" style="width:${health}%"></div></div></article>
     </div>
-    <div class="mt-4 grid gap-4 xl:grid-cols-3">
+    <div id="home-row" class="mt-4 grid gap-4 xl:grid-cols-3">
       <section class="rounded-2xl border border-line bg-white p-5 shadow-sm">
         <h2 class="text-sm font-semibold">Control status</h2>
         <div class="mt-4 flex flex-wrap items-center gap-5">
@@ -602,13 +602,13 @@ function renderUploaderHome() {
           <ul class="min-w-[11rem] flex-1 space-y-2.5">${legend}</ul>
         </div>
       </section>
-      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5 shadow-sm">
-        <h2 class="text-sm font-semibold">Recent activity</h2>
-        <ul class="mt-2">${activity || '<li class="border-t border-line py-4 text-sm text-slate-500">Nothing has been recorded yet.</li>'}</ul>
+      <section class="flex flex-col rounded-2xl border border-line bg-white p-5 shadow-sm xl:h-0 xl:min-h-full">
+        <h2 class="shrink-0 text-sm font-semibold">Recent activity</h2>
+        <ul class="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-y-contain">${activity || '<li class="border-t border-line py-4 text-sm text-slate-500">Nothing has been recorded yet.</li>'}</ul>
       </section>
-      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5 shadow-sm">
-        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Upcoming / overdue</h2><button type="button" data-go="tickets" class="text-xs font-medium text-[#1860C8]">View all</button></div>
-        <ul class="mt-2">${upcomingRows || '<li class="border-t border-line py-4 text-sm text-slate-500">No review date or ticket is due.</li>'}</ul>
+      <section class="flex flex-col rounded-2xl border border-line bg-white p-5 shadow-sm xl:h-0 xl:min-h-full">
+        <div class="flex shrink-0 items-center justify-between"><h2 class="text-sm font-semibold">Upcoming / overdue</h2><button type="button" data-go="tickets" class="text-xs font-medium text-[#1860C8]">View all</button></div>
+        <ul class="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-y-contain">${upcomingRows || '<li class="border-t border-line py-4 text-sm text-slate-500">No review date or ticket is due.</li>'}</ul>
       </section>
     </div>
     <section class="mt-4">
