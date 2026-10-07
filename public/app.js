@@ -310,10 +310,10 @@ function ackCards() {
         <div><dt class="text-xs text-slate-500">Your role</dt><dd class="font-medium">${escapeHtml(actor().title || actor().role || 'User')}</dd></div>
       </dl>
       <label class="mt-4 block text-sm font-medium">Signature
-        <input name="signature" required maxlength="80" value="${escapeHtml(actor().name)}" class="mt-1 w-full rounded-lg border border-line px-3 py-3 font-serif text-lg font-normal outline-none focus:border-[#6D28D9]" />
+        <input name="signature" required maxlength="80" value="${escapeHtml(actor().name)}" class="mt-1 w-full rounded-lg border border-line px-3 py-3 font-serif text-lg font-normal outline-none focus:border-[#1860C8]" />
       </label>
       <label class="mt-3 flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" required class="mt-1" /> <span>I confirm that I have reviewed and acknowledge this responsibility.</span></label>
-      <div class="mt-4 flex justify-end"><button type="submit" class="rounded-lg bg-[#6D28D9] px-4 py-2 text-sm font-medium text-white">${onFile ? 'Confirm signature' : 'Sign & Confirm'}</button></div>
+      <div class="mt-4 flex justify-end"><button type="submit" class="rounded-lg bg-[#1860C8] px-4 py-2 text-sm font-medium text-white">${onFile ? 'Confirm signature' : 'Sign & Confirm'}</button></div>
     </form>`).join('');
 }
 
@@ -545,7 +545,7 @@ function renderUploaderHome() {
   const thisWeek = files.filter((item) => new Date(item.uploadedAt).getTime() >= weekAgo).length;
   const activity = (ws().history || []).slice(0, 5).map((row) => `
     <li class="flex items-start gap-3 border-t border-line py-3">
-      <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F3EEFF] text-[#6D28D9]">
+      <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#E4EAF1] text-[#5C6E82]">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
       </span>
       <p class="min-w-0 flex-1 text-sm leading-relaxed">${escapeHtml(row.text)}</p>
@@ -569,9 +569,9 @@ function renderUploaderHome() {
   ].slice(0, 5);
   const upcomingRows = upcoming.map((row) => `
     <li class="flex items-start gap-3 border-t border-line py-3">
-      <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${row.late ? 'bg-rose-500' : 'bg-amber-400'}"></span>
+      <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${row.late ? 'bg-[#5C6E82]' : 'bg-[#B7C3D0]'}"></span>
       <button type="button" data-go="${row.go}" ${row.evidence ? `data-evidence-open="${escapeHtml(row.evidence)}"` : ''} class="min-w-0 flex-1 text-left text-sm">${escapeHtml(row.title)}</button>
-      <span class="shrink-0 text-xs ${row.late ? 'text-rose-700' : 'text-slate-500'}">${escapeHtml(row.meta)}</span>
+      <span class="shrink-0 text-xs text-slate-500">${escapeHtml(row.meta)}</span>
     </li>`).join('');
   const gaps = all.filter((control) => control.agreed === 'NO EVIDENCE').length;
   const notMet = all.filter((control) => control.agreed === 'NOT MET').length;
@@ -588,11 +588,11 @@ function renderUploaderHome() {
       <p class="mt-1 text-sm text-slate-500">Here's what's happening with your evidence and governance.</p>
     </div>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F3EEFF] text-[#6D28D9]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(framework)}</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-emerald-600">+${thisWeek} this week</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs ${overdue ? 'text-rose-600' : 'text-slate-400'}">${overdue} overdue</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width:${health}%"></div></div></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(framework)}</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue} overdue</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#E4EAF1] text-[#5C6E82]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#1860C8]" style="width:${health}%"></div></div></article>
     </div>
     <div class="mt-4 grid gap-4 xl:grid-cols-3">
       <section class="rounded-2xl border border-line bg-white p-5 shadow-sm">
@@ -607,17 +607,17 @@ function renderUploaderHome() {
         <ul class="mt-2">${activity || '<li class="border-t border-line py-4 text-sm text-slate-500">Nothing has been recorded yet.</li>'}</ul>
       </section>
       <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5 shadow-sm">
-        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Upcoming / overdue</h2><button type="button" data-go="tickets" class="text-xs font-medium text-[#6D28D9]">View all</button></div>
+        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Upcoming / overdue</h2><button type="button" data-go="tickets" class="text-xs font-medium text-[#1860C8]">View all</button></div>
         <ul class="mt-2">${upcomingRows || '<li class="border-t border-line py-4 text-sm text-slate-500">No review date or ticket is due.</li>'}</ul>
       </section>
     </div>
     <section class="mt-4">
       <h2 class="text-sm font-semibold">Key Insights</h2>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${insight('bg-[#F6F1FF]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#7C3AED] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span>', notMet, notMet === 1 ? 'Critical issue' : 'Critical issues', 'Requires immediate attention')}
-        ${insight('bg-[#FFF7ED]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F59E0B] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l2 2"/></svg></span>', expiring, 'Evidence expiring soon', 'Within 7 days')}
-        ${insight('bg-[#EFF6FF]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#3B82F6] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></span>', gaps, gaps === 1 ? 'Open gap' : 'Open gaps', 'Need remediation')}
-        ${insight('bg-[#ECFDF3]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#22C55E] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16v12H4z"/><path d="M4 8l8 6 8-6"/></svg></span>', overdue, overdue === 1 ? 'Overdue ticket' : 'Overdue tickets', 'Action required')}
+        ${insight('bg-white border border-line', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#E4EAF1] text-[#5C6E82]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span>', notMet, notMet === 1 ? 'Critical issue' : 'Critical issues', 'Requires immediate attention')}
+        ${insight('bg-white border border-line', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#E4EAF1] text-[#5C6E82]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l2 2"/></svg></span>', expiring, 'Evidence expiring soon', 'Within 7 days')}
+        ${insight('bg-white border border-line', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#E4EAF1] text-[#5C6E82]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></span>', gaps, gaps === 1 ? 'Open gap' : 'Open gaps', 'Need remediation')}
+        ${insight('bg-white border border-line', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#E4EAF1] text-[#5C6E82]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16v12H4z"/><path d="M4 8l8 6 8-6"/></svg></span>', overdue, overdue === 1 ? 'Overdue ticket' : 'Overdue tickets', 'Action required')}
       </div>
     </section>`;
 }
@@ -1074,7 +1074,7 @@ function renderUpload() {
     const number = index + 1;
     const on = state.uploadStep === number;
     const done = state.uploadStep > number;
-    return `<li data-upload-pip="${number}" class="flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#6D28D9]' : 'text-slate-400'}"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#6D28D9] text-white' : 'bg-slate-100 text-slate-500'}">${number}</span>${escapeHtml(label)}</li>`;
+    return `<li data-upload-pip="${number}" class="flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#1860C8]' : 'text-slate-400'}"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#1860C8] text-white' : 'bg-slate-100 text-slate-500'}">${number}</span>${escapeHtml(label)}</li>`;
   }).join('');
   pane.innerHTML = `
     ${banner()}
@@ -1094,26 +1094,26 @@ function renderUpload() {
         </label>
         <div data-source-file class="mt-4">
           <label class="block text-sm font-medium">File on this computer
-            <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-[#F3EEFF] file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#6D28D9]" />
+            <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-[#E7EEF8] file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#1860C8]" />
           </label>
           <p class="mt-1 text-xs text-slate-500">The register keeps the file name and a fingerprint. It does not keep a copy of the file.</p>
         </div>
         <div data-source-place hidden class="mt-4">
           <label class="block text-sm font-medium">Where the document already lives
-            <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]" />
+            <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
           </label>
           <p class="mt-1 text-xs text-slate-500">This place is not connected. Record the link or path. The file stays where it is.</p>
         </div>
       </div>
       <div data-upload-panel="3" ${state.uploadStep === 3 ? '' : 'hidden'}>
         <label class="mt-6 block text-sm font-medium">Evidence title
-          <input name="name" maxlength="160" placeholder="AI Risk Register" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]" />
+          <input name="name" maxlength="160" placeholder="AI Risk Register" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
         </label>
         <label class="mt-4 block text-sm font-medium">Description
-          <textarea name="note" maxlength="500" rows="4" placeholder="What this document shows" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]"></textarea>
+          <textarea name="note" maxlength="500" rows="4" placeholder="What this document shows" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
         </label>
         <label class="mt-4 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
-          <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]" />
+          <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
         </label>
       </div>
       <div data-upload-panel="4" ${state.uploadStep === 4 ? '' : 'hidden'}>
@@ -1121,8 +1121,8 @@ function renderUpload() {
       </div>
       <div class="mt-5 flex items-center justify-between gap-3">
         <button type="button" id="upload-back" class="rounded-lg border border-line px-4 py-2 text-sm ${state.uploadStep === 1 ? 'invisible' : ''}">Back</button>
-        <button type="button" id="upload-next" class="rounded-lg bg-[#6D28D9] px-4 py-2 text-sm font-medium text-white ${state.uploadStep === 4 ? 'hidden' : ''}">Next</button>
-        <button type="submit" class="rounded-lg bg-[#6D28D9] px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${state.uploadStep === 4 ? '' : 'hidden'}">Upload Evidence</button>
+        <button type="button" id="upload-next" class="rounded-lg bg-[#1860C8] px-4 py-2 text-sm font-medium text-white ${state.uploadStep === 4 ? 'hidden' : ''}">Next</button>
+        <button type="submit" class="rounded-lg bg-[#1860C8] px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${state.uploadStep === 4 ? '' : 'hidden'}">Upload Evidence</button>
       </div>
     </form>`;
   const form = document.getElementById('user-upload-form');
@@ -1181,9 +1181,9 @@ function showUploadStep(step) {
     const number = Number(pip.dataset.uploadPip);
     const on = number === step;
     const done = number < step;
-    pip.className = `flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#6D28D9]' : 'text-slate-400'}`;
+    pip.className = `flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#1860C8]' : 'text-slate-400'}`;
     const badge = pip.querySelector('span');
-    if (badge) badge.className = `inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#6D28D9] text-white' : 'bg-slate-100 text-slate-500'}`;
+    if (badge) badge.className = `inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#1860C8] text-white' : 'bg-slate-100 text-slate-500'}`;
   });
   const back = document.getElementById('upload-back');
   const next = document.getElementById('upload-next');
@@ -1230,18 +1230,18 @@ function renderUserEvidence() {
     const control = controlById(item.controlIds[0]);
     const [label, tone] = fileStatus(item);
     return `<tr class="border-t border-line hover:bg-[#FAFBFC]">
-      <td class="px-4 py-3 text-sm font-medium text-[#6D28D9]">${escapeHtml(item.id)}</td>
+      <td class="px-4 py-3 text-sm font-medium text-[#1860C8]">${escapeHtml(item.id)}</td>
       <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(control?.id || '—')}</td>
       <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.name)}</td>
       <td class="px-4 py-3 text-sm">${avatar(item.uploadedBy)}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(control ? person(control.reviewerId).name : '—')}</td>
       <td class="px-4 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span></td>
       <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(when(item.uploadedAt))}</td>
-      <td class="px-4 py-3 text-right"><button type="button" data-evidence="${escapeHtml(item.id)}" class="text-sm font-medium text-[#6D28D9]">Open</button></td>
+      <td class="px-4 py-3 text-right"><button type="button" data-evidence="${escapeHtml(item.id)}" class="text-sm font-medium text-[#1860C8]">Open</button></td>
     </tr>`;
   }).join('');
   const shown = rows.length ? `${start + 1}–${Math.min(start + pageSize, rows.length)}` : '0';
-  const pager = `<div class="flex items-center justify-between border-t border-line px-4 py-3 text-sm text-slate-500"><span>Showing ${shown} of ${rows.length}</span><span class="flex gap-2">${Array.from({ length: pages }, (_, index) => `<button type="button" data-evidence-page="${index + 1}" class="h-8 w-8 rounded-lg ${state.evidencePage === index + 1 ? 'bg-[#6D28D9] text-white' : 'border border-line'}">${index + 1}</button>`).join('')}</span></div>`;
+  const pager = `<div class="flex items-center justify-between border-t border-line px-4 py-3 text-sm text-slate-500"><span>Showing ${shown} of ${rows.length}</span><span class="flex gap-2">${Array.from({ length: pages }, (_, index) => `<button type="button" data-evidence-page="${index + 1}" class="h-8 w-8 rounded-lg ${state.evidencePage === index + 1 ? 'bg-[#1860C8] text-white' : 'border border-line'}">${index + 1}</button>`).join('')}</span></div>`;
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -1249,7 +1249,7 @@ function renderUserEvidence() {
         <h1 class="text-2xl font-semibold tracking-tight">Evidence Register</h1>
         <p class="mt-1 text-sm text-slate-500">View and manage all evidence submissions.</p>
       </div>
-      <button type="button" data-go="upload" class="rounded-lg bg-[#6D28D9] px-3.5 py-2 text-sm font-medium text-white">Upload Evidence</button>
+      <button type="button" data-go="upload" class="rounded-lg bg-[#1860C8] px-3.5 py-2 text-sm font-medium text-white">Upload Evidence</button>
     </div>
     <div class="mt-5 flex flex-wrap gap-2">
       <select data-evidence-filter="evidenceControl" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All controls</option>${(ws().controls || []).map((control) => `<option value="${escapeHtml(control.id)}" ${state.evidenceControl === control.id ? 'selected' : ''}>${escapeHtml(control.id)}</option>`).join('')}</select>
@@ -1273,7 +1273,7 @@ function renderEvidenceDetail(item) {
     ['history', 'Review History'],
     ['attachments', 'Attachments'],
     ['comments', 'Comments'],
-  ].map(([id, label]) => `<button type="button" data-evidence-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#6D28D9] text-[#6D28D9]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
+  ].map(([id, label]) => `<button type="button" data-evidence-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#1860C8] text-[#1860C8]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
   const controls = item.controlIds.map((id) => controlById(id)).filter(Boolean);
   const primary = controls[0];
   const [statusLabel, statusTone] = fileStatus(item);
@@ -1311,16 +1311,16 @@ function renderEvidenceDetail(item) {
       <aside class="rounded-2xl border border-line bg-white p-5">
         <p class="text-sm font-semibold">Fingerprint</p>
         <p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(hashText || 'Not recorded')}</p>
-        <button type="button" id="show-hash" class="mt-4 rounded-lg bg-[#F3EEFF] px-3 py-2 text-sm font-medium text-[#6D28D9]">${state.showHash ? 'Hide' : 'View'}</button>
+        <button type="button" id="show-hash" class="mt-4 rounded-lg bg-[#E7EEF8] px-3 py-2 text-sm font-medium text-[#1860C8]">${state.showHash ? 'Hide' : 'View'}</button>
       </aside>
     </div>`;
   }
   pane.innerHTML = `
     ${banner()}
-    <button type="button" id="evidence-back" class="text-sm font-medium text-[#6D28D9]">Back to Evidence Register</button>
+    <button type="button" id="evidence-back" class="text-sm font-medium text-[#1860C8]">Back to Evidence Register</button>
     <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p class="text-sm font-semibold text-[#6D28D9]">${escapeHtml(item.id)}</p>
+        <p class="text-sm font-semibold text-[#1860C8]">${escapeHtml(item.id)}</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(primary ? `${primary.id} · ${primary.expected || 'Requirement'}` : item.name)}</h1>
       </div>
       <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusTone}">${escapeHtml(statusLabel)}</span>
@@ -1338,7 +1338,7 @@ function renderProfile() {
     ['info', 'Personal Info'],
     ['roles', 'Roles & Permissions'],
     ['signature', 'Signature'],
-  ].map(([id, label]) => `<button type="button" data-profile-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#6D28D9] text-[#6D28D9]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
+  ].map(([id, label]) => `<button type="button" data-profile-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#1860C8] text-[#1860C8]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
   const facts = [
     ['Full name', who.name],
     ['Email', who.email || 'Not set'],
@@ -1363,7 +1363,7 @@ function renderProfile() {
     <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_18rem]">
       <section class="rounded-2xl border border-line bg-white p-5 shadow-sm">
         <div class="flex items-center gap-3">
-          <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#F3EEFF] text-base font-semibold text-[#6D28D9]">${escapeHtml(initials(who.name))}</span>
+          <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#E7EEF8] text-base font-semibold text-[#1860C8]">${escapeHtml(initials(who.name))}</span>
           <div>
             <p class="text-lg font-semibold">${escapeHtml(who.name)}</p>
             <p class="text-sm text-slate-500">${escapeHtml(who.title || who.role || 'User')}</p>
@@ -1374,7 +1374,7 @@ function renderProfile() {
       </section>
       <section class="h-fit rounded-2xl border border-line bg-white p-5 shadow-sm">
         <h2 class="text-sm font-semibold">Signature status</h2>
-        <p class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-emerald-700"><span class="h-2 w-2 rounded-full ${who.signatureStatus === 'Signed' ? 'bg-emerald-500' : 'bg-slate-300'}"></span>${escapeHtml(who.signatureStatus || 'Not signed')}</p>
+        <p class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#1860C8]"><span class="h-2 w-2 rounded-full ${who.signatureStatus === 'Signed' ? 'bg-[#1860C8]' : 'bg-slate-300'}"></span>${escapeHtml(who.signatureStatus || 'Not signed')}</p>
         <p class="mt-2 text-sm text-slate-500">${escapeHtml(roles.join(', ') || 'User')}</p>
       </section>
     </div>`;
@@ -1663,7 +1663,7 @@ function navButton(id, label, glyph, mobile) {
   }
   const ticketCount = (ws()?.tickets || []).filter((ticket) => ticket.status !== 'resolved' && (state.profile !== 'uploader' || ticket.ownerId === state.actorId)).length;
   const badge = id === 'review' ? waitingReviews().length : id === 'tickets' ? ticketCount : 0;
-  return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${on ? 'bg-[#6D28D9] text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
+  return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${on ? 'bg-[#1860C8] text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
 }
 
 function personOptions(rows) {
