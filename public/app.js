@@ -80,6 +80,7 @@ const state = {
   receiptId: '',
   reviewId: '',
   adminTray: 'accepted',
+  historyCategory: 'all',
   actorId: '',
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
@@ -1996,13 +1997,37 @@ function ticketDetail(ticket) {
     </article>`;
 }
 
+function historyCategory(text) {
+  const line = String(text || '');
+  if (/^(Opened ticket|Verified ticket|Sent ticket)\b/.test(line) || line.includes('now reads Met')) return 'Tickets';
+  if (/^(Accepted|Rejected|Agreed|Disagreed|Edited|Asked)\b/.test(line)) return 'Decisions';
+  if (/^(Recorded|Filed)\b/.test(line) || / signed EV-/.test(line)) return 'Evidence';
+  if (/evidence owner|acknowledged responsibility|as reviewer for|Changed the owner/.test(line)) return 'Responsibilities';
+  if (/^Set /.test(line) || / signed in |created an account|password|link to join|Could not email|draw a signature/.test(line) || /^Added .+ in /.test(line)) return 'People';
+  return 'Organisation';
+}
+
 function renderHistory() {
-  const rows = (ws().history || []).filter((row) => matches(`${row.text} ${person(row.actorId).name}`));
-  const list = rows.map((row) => `
-    <li class="grid gap-1 border-t border-line py-4 sm:grid-cols-[12rem_1fr]">
-      <span class="text-xs text-slate-500">${escapeHtml(whenTime(row.at))}</span>
-      <span class="text-sm leading-relaxed"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}</span>
-    </li>`).join('');
+  const categories = ['Evidence', 'Decisions', 'Tickets', 'Responsibilities', 'People', 'Organisation'];
+  const all = ws().history || [];
+  const counts = Object.fromEntries(categories.map((name) => [name, all.filter((row) => historyCategory(row.text) === name).length]));
+  const chosen = state.historyCategory !== 'all' && counts[state.historyCategory] ? state.historyCategory : 'all';
+  state.historyCategory = chosen;
+  const rows = all.filter((row) => {
+    if (chosen !== 'all' && historyCategory(row.text) !== chosen) return false;
+    return matches(`${row.text} ${person(row.actorId).name} ${historyCategory(row.text)}`);
+  });
+  const body = rows.map((row) => `
+    <tr class="border-t border-line align-top">
+      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(whenTime(row.at))}</td>
+      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(person(row.actorId).name)}</td>
+      <td class="whitespace-nowrap px-4 py-3 text-sm">${escapeHtml(historyCategory(row.text))}</td>
+      <td class="px-4 py-3 text-sm leading-relaxed">${escapeHtml(row.text)}</td>
+    </tr>`).join('');
+  const options = ['all', ...categories.filter((name) => counts[name])].map((name) => {
+    const label = name === 'all' ? 'All categories' : `${name} (${counts[name]})`;
+    return `<option value="${escapeHtml(name)}" ${chosen === name ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -2010,8 +2035,14 @@ function renderHistory() {
         <h1 class="text-2xl font-semibold tracking-tight">History</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-500">Each line is added. Nothing on this page rewrites an earlier line.</p>
       </div>
+      <select data-history-category class="rounded-lg border border-line bg-white px-3 py-2 text-sm">${options}</select>
     </div>
-    <ul class="mt-5 rounded-xl border border-line bg-white px-5">${list || '<li class="py-6 text-sm text-slate-500">Nothing matches.</li>'}</ul>`;
+    <div class="mt-5 overflow-x-auto rounded-xl border border-line bg-white">
+      <table class="w-full text-left">
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-medium">When</th><th class="px-4 py-3 font-medium">Person</th><th class="px-4 py-3 font-medium">Category</th><th class="px-4 py-3 font-medium">Record</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="4" class="px-4 py-8 text-sm text-slate-500">${all.length ? 'Nothing matches.' : 'Nothing has been recorded yet.'}</td></tr>`}</tbody>
+      </table>
+    </div>`;
 }
 
 function renderPeople() {
@@ -2867,6 +2898,11 @@ pane.addEventListener('change', (event) => {
   if (event.target.dataset.evidenceFilter) {
     state[event.target.dataset.evidenceFilter] = event.target.value;
     state.evidencePage = 1;
+    render();
+    return;
+  }
+  if (event.target.dataset.historyCategory !== undefined) {
+    state.historyCategory = event.target.value;
     render();
     return;
   }
