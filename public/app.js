@@ -1094,18 +1094,30 @@ function renderTemplates() {
 }
 
 function renderUpload() {
-  const mine = ownedControls();
-  const intro = `<h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload a document to provide evidence for an assigned ISO/IEC 42001 requirement. Evidence is assessed against the relevant control, and an authorised reviewer makes the final decision.</p>`;
-  if (!mine.length) {
-    const empty = noDutyCopy();
-    pane.innerHTML = `${banner()}${intro}${empty ? `<div class="mt-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${empty}</div>` : ''}${dutyNote()}`;
+  const controls = ws()?.controls || [];
+  const intro = `<h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload a document for a requirement on this control set. An authorised reviewer makes the final decision.</p>`;
+  if (!controls.length) {
+    pane.innerHTML = `${banner()}${intro}${dutyNote()}`;
     return;
   }
   pane.innerHTML = `
     ${banner()}
     ${intro}
-    <div class="mt-5 grid gap-3 lg:grid-cols-2">${dutyCards(mine)}</div>
-    ${dutyNote()}`;
+    ${dutyNote()}
+    <form id="user-upload-form" class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <div id="user-upload-fields"></div>
+      <div class="mt-5 flex justify-end">
+        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-70">Upload evidence</button>
+      </div>
+    </form>`;
+  const form = document.getElementById('user-upload-form');
+  document.getElementById('user-upload-fields').innerHTML = evidenceFields(controls);
+  bindEvidenceForm(form);
+  const select = form.elements.controlId;
+  if (select && state.uploadControl && controls.some((control) => control.id === state.uploadControl)) {
+    select.value = state.uploadControl;
+    syncAlso(form);
+  }
 }
 
 function fillUploadSummary(form) {
@@ -1998,6 +2010,14 @@ function openUploadDialog(controlId) {
 }
 
 function openEvidence(controlId) {
+  if (state.profile === 'uploader') {
+    state.page = 'upload';
+    state.uploadControl = controlId || '';
+    state.flash = '';
+    state.error = '';
+    render();
+    return;
+  }
   openUploadDialog(controlId);
 }
 
@@ -2634,7 +2654,11 @@ document.addEventListener('click', (event) => {
 });
 
 document.getElementById('header-upload')?.addEventListener('click', () => {
-  openUploadDialog('');
+  state.page = 'upload';
+  state.uploadControl = '';
+  state.flash = '';
+  state.error = '';
+  render();
 });
 
 document.getElementById('sign-out').addEventListener('click', async () => {
