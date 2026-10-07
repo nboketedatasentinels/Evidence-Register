@@ -720,7 +720,6 @@ function renderUploaderHome() {
     ${banner()}
     ${noteCards()}
     ${all.some((control) => control.ownerId === state.actorId) ? `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm"><h2 class="text-sm font-semibold">Responsibilities</h2><p class="mt-1 max-w-2xl text-sm text-slate-500">Acknowledge a requirement only when you are the evidence owner. This does not approve the requirement or the evidence.</p>${responsibilityTable(all.filter((control) => control.ownerId === state.actorId), true)}</section>` : ''}
-    ${all.length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(all)}</div></section>` : ''}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
@@ -1340,9 +1339,19 @@ function renderUpload() {
     pane.innerHTML = `${banner()}${intro}<p class="mt-5 max-w-2xl text-sm text-slate-600">No requirement is on the control set yet.</p>`;
     return;
   }
+  const chosen = controls.find((control) => control.id === state.uploadControl);
+  if (!chosen) {
+    pane.innerHTML = `
+      ${banner()}
+      ${intro}
+      <div class="mt-5 grid gap-3 lg:grid-cols-2">${dutyCards(controls)}</div>`;
+    return;
+  }
   pane.innerHTML = `
     ${banner()}
-    ${intro}
+    <button type="button" id="upload-choices" class="text-sm font-medium text-[#1860C8]">All requirements</button>
+    <h1 class="mt-3 text-2xl font-semibold tracking-tight">Upload Evidence</h1>
+    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">${escapeHtml(chosen.id)} — ${escapeHtml(controlTitle(chosen))}. The named reviewer is notified and makes the final decision.</p>
     <form id="user-upload-form" class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
       ${userUploadFields(controls)}
     </form>
@@ -2465,8 +2474,9 @@ function drawingOn() {
 }
 
 pane.addEventListener('click', (event) => {
-  if (event.target.closest('[data-upload-reset]')) {
+  if (event.target.closest('[data-upload-reset]') || event.target.id === 'upload-choices') {
     state.receiptId = '';
+    state.uploadControl = '';
     state.flash = '';
     state.error = '';
     render();
@@ -2570,6 +2580,7 @@ pane.addEventListener('click', (event) => {
     }
     if (go.dataset.go === 'upload') {
       state.uploadStep = 1;
+      state.uploadControl = '';
       state.receiptId = '';
     }
     state.page = go.dataset.go;
