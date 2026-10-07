@@ -71,6 +71,7 @@ const state = {
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
   invite: null,
+  resetToken: '',
 };
 
 const pane = document.getElementById('pane');
@@ -364,7 +365,7 @@ function renderUploaderHome() {
     ${ackCards()}
     <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Uploader</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(actor().name)}</h1>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">You can file evidence and work tickets assigned to you. A reviewer permission on your account still cannot approve a file you uploaded.</p>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500">You can file evidence and work tickets assigned to you.</p>
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
       ${fact('Submissions you can see', String(mine.length))}
       ${fact('Tickets assigned to you', String(assigned.length))}
@@ -663,7 +664,7 @@ function renderOrganisation() {
       </div>
     </div>
     <h2 class="mb-1 mt-6 text-sm font-semibold">Add people</h2>
-    <p class="mb-4 max-w-3xl text-sm text-slate-500">Upload an Excel file, or enter them manually. The file needs full name, email, role, and age range. Role is User or Reviewer. Age range is 18–24, 25–34, 35–44, 45–54, 55–64, or 65+. The blue pen at the top turns on a drawing when that person opens the link. Copy the link into the email you send. This register does not send the email.</p>
+    <p class="mb-4 max-w-3xl text-sm text-slate-500">Upload an Excel file, or enter them manually. The file needs full name, email, role, and age range. Role is User or Reviewer. Age range is 18–24, 25–34, 35–44, 45–54, 55–64, or 65+. Adding someone sends them an email with the link to join. The blue pen at the top turns on a drawing when they open that link.</p>
     <div class="grid gap-4 lg:grid-cols-2">
       <form id="excel-form" class="rounded-xl border border-line bg-white p-5">
         <h3 class="text-sm font-semibold">Upload Excel</h3>
@@ -689,7 +690,7 @@ function renderOrganisation() {
             <select name="ageRange" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal"><option value="">Choose</option>${['18–24', '25–34', '35–44', '45–54', '55–64', '65+'].map((age) => `<option value="${age}">${age}</option>`).join('')}</select>
           </label>
           <label class="text-sm font-medium sm:col-span-2">Department
-            <input name="unit" maxlength="80" placeholder="Optional. They can confirm it on their page." class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+            <input name="unit" maxlength="80" placeholder="Optional" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
           </label>
         </div>
         <button type="submit" class="mt-4 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Add this person</button>
@@ -706,6 +707,7 @@ function renderOrganisation() {
           <p class="mt-1 text-xs text-slate-500">${escapeHtml(link)}</p>
         </div>
         <div class="flex items-center gap-2">
+          <button type="button" data-send-invite="${escapeHtml(row.id)}" class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Send email</button>
           <button type="button" data-copy-link="${escapeHtml(link)}" class="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Copy link</button>
           ${penButton({ id: row.id, on: row.signatureRequired })}
         </div>
@@ -1142,14 +1144,40 @@ function showAuth(message) {
   const profile = pathProfile();
   const name = VIEW_NAME[profile] || 'User';
   document.getElementById('auth-kicker').textContent = name;
-  document.getElementById('auth-title').textContent = state.authMode === 'signup' ? 'Create an account' : 'Sign in';
-  document.getElementById('auth-copy').textContent = AUTH_COPY[profile] || '';
+  document.getElementById('auth-title').textContent = state.authMode === 'forgot'
+    ? 'Reset password'
+    : state.authMode === 'reset'
+      ? 'Choose a new password'
+      : state.authMode === 'signup'
+        ? 'Create an account'
+        : 'Sign in';
+  document.getElementById('auth-copy').textContent = state.authMode === 'forgot'
+    ? 'This is only for people an admin has added. A reset link is sent to that work email.'
+    : state.authMode === 'reset'
+      ? 'Choose a new password for the account an admin added. The link expires in one hour.'
+      : AUTH_COPY[profile] || '';
   document.getElementById('signup-form').hidden = state.authMode !== 'signup';
   document.getElementById('signin-form').hidden = state.authMode !== 'signin';
-  document.getElementById('auth-switch').textContent = state.authMode === 'signup' ? 'Already have an account? Sign in' : 'Need an account? Create one';
+  document.getElementById('forgot-form').hidden = state.authMode !== 'forgot';
+  document.getElementById('reset-form').hidden = state.authMode !== 'reset' || !state.resetToken;
+  document.getElementById('auth-switch').hidden = false;
+  document.getElementById('auth-switch').textContent = state.authMode === 'signup'
+    ? 'Already have an account? Sign in'
+    : state.authMode === 'signin'
+      ? 'Need an account? Create one'
+      : 'Back to sign in';
+  document.getElementById('signup-submit').textContent = 'Create account';
+  document.getElementById('invite-summary').hidden = true;
+  ['name-field', 'email-field', 'job-field', 'unit-field'].forEach((id) => {
+    document.getElementById(id).hidden = false;
+  });
+  document.getElementById('age-field').hidden = true;
   const error = document.getElementById('auth-error');
   error.textContent = message || '';
   error.classList.toggle('hidden', !message);
+  const note = document.getElementById('auth-note');
+  note.textContent = arguments[1] || '';
+  note.classList.toggle('hidden', !arguments[1]);
   if (state.invite) applyInvite();
   if (!message) playAuthEnter();
   startAuthMotion();
@@ -1167,20 +1195,32 @@ function applyInvite() {
     return;
   }
   form.hidden = false;
+  const unit = invite.unit || 'Unassigned';
   form.elements.name.value = invite.name || '';
   form.elements.email.value = invite.email || '';
   form.elements.email.readOnly = true;
   form.elements.inviteToken.value = invite.token || '';
-  if (invite.unit) form.elements.unit.value = invite.unit;
-  if (invite.job) form.elements.job.value = invite.job;
-  document.getElementById('age-field').hidden = false;
-  if (invite.ageRange && form.elements.ageRange) form.elements.ageRange.value = invite.ageRange;
+  form.elements.unit.value = unit;
+  form.elements.job.value = invite.job || '';
+  if (form.elements.ageRange) form.elements.ageRange.value = invite.ageRange || '';
+  document.getElementById('invite-name').textContent = invite.name || '—';
+  document.getElementById('invite-email').textContent = invite.email || '—';
+  document.getElementById('invite-role').textContent = VIEW_NAME[invite.profile] || 'User';
+  document.getElementById('invite-unit').textContent = invite.unit || 'Not recorded';
+  document.getElementById('invite-age').textContent = invite.ageRange || 'Not recorded';
+  document.getElementById('invite-summary').hidden = false;
+  ['name-field', 'email-field', 'job-field', 'unit-field', 'age-field'].forEach((id) => {
+    document.getElementById(id).hidden = true;
+  });
+  document.getElementById('auth-title').textContent = 'Your details';
+  document.getElementById('signup-submit').textContent = 'Sign in';
+  document.getElementById('auth-switch').hidden = true;
   const box = document.getElementById('sign-draw');
   box.hidden = !invite.signatureRequired;
   if (invite.signatureRequired) bindSignPad();
   document.getElementById('auth-copy').textContent = invite.signatureRequired
-    ? 'Confirm your name, job, and department, then draw your signature.'
-    : 'Confirm your name, job, and department.';
+    ? 'These details are already on the register. Draw your signature, choose a password, and sign in.'
+    : 'These details are already on the register. Choose a password and sign in.';
 }
 
 function bindSignPad() {
@@ -1281,6 +1321,24 @@ async function load() {
   }
   state.profile = pathProfile();
   if (!token()) {
+    const resetToken = new URLSearchParams(location.search).get('reset');
+    if (resetToken) {
+      state.authMode = 'reset';
+      state.resetToken = resetToken;
+      const response = await fetch(`/api/auth/reset?token=${encodeURIComponent(resetToken)}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        state.resetToken = '';
+        showAuth(data.error || 'That reset link is no longer open.');
+        return;
+      }
+      if (data.reset?.path && data.reset.path !== currentPath()) {
+        location.replace(`${data.reset.path}?reset=${encodeURIComponent(resetToken)}`);
+        return;
+      }
+      showAuth();
+      return;
+    }
     const inviteToken = new URLSearchParams(location.search).get('invite');
     if (inviteToken) {
       const response = await fetch(`/api/auth/invite?token=${encodeURIComponent(inviteToken)}`);
@@ -1374,11 +1432,16 @@ pane.addEventListener('click', (event) => {
     post('/api/loop/invite-pen', { invitationId: pen.dataset.pen, signatureRequired: pen.dataset.penOn !== '1' });
     return;
   }
+  const send = event.target.closest('[data-send-invite]');
+  if (send) {
+    post('/api/loop/invite-email', { invitationId: send.dataset.sendInvite });
+    return;
+  }
   const copy = event.target.closest('[data-copy-link]');
   if (copy) {
     const href = `${location.origin}${copy.dataset.copyLink}`;
     navigator.clipboard.writeText(href).then(() => {
-      state.flash = 'Link copied. Paste it into the email as the button that opens their page.';
+      state.flash = 'Link copied.';
       state.error = '';
       render();
     }).catch(() => {
@@ -1615,6 +1678,10 @@ async function authenticate(url, form) {
     return;
   }
   const data = new FormData(form);
+  if (url.endsWith('/reset') && data.get('password') !== data.get('confirm')) {
+    showAuth('The two passwords do not match.');
+    return;
+  }
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1628,6 +1695,7 @@ async function authenticate(url, form) {
       ageRange: data.get('ageRange'),
       inviteToken: data.get('inviteToken'),
       drawnSignature: signatureImage(),
+      token: state.resetToken,
     }),
   });
   const payload = await response.json().catch(() => ({}));
@@ -1635,6 +1703,9 @@ async function authenticate(url, form) {
     showAuth(payload.error || 'That did not save.');
     return;
   }
+  state.invite = null;
+  state.resetToken = '';
+  if (url.endsWith('/reset')) history.replaceState({}, '', currentPath());
   sessionStorage.setItem(sessionKey(), payload.token);
   state.actorId = payload.actorId;
   state.workspace = payload.workspace;
@@ -1654,8 +1725,35 @@ document.getElementById('signin-form').addEventListener('submit', (event) => {
   authenticate('/api/auth/login', event.target);
 });
 
+document.getElementById('forgot-open').addEventListener('click', () => {
+  state.authMode = 'forgot';
+  showAuth();
+});
+
+document.getElementById('forgot-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const email = new FormData(event.target).get('email');
+  const response = await fetch('/api/auth/forgot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    showAuth(payload.error || 'That reset link was not sent.');
+    return;
+  }
+  showAuth('', payload.message || 'A reset link was sent.');
+});
+
+document.getElementById('reset-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  authenticate('/api/auth/reset', event.target);
+});
+
 document.getElementById('auth-switch').addEventListener('click', () => {
-  state.authMode = state.authMode === 'signup' ? 'signin' : 'signup';
+  state.authMode = state.authMode === 'signup' ? 'signin' : state.authMode === 'signin' ? 'signup' : 'signin';
+  state.resetToken = '';
   showAuth();
 });
 
@@ -1681,6 +1779,16 @@ document.getElementById('template-form').addEventListener('submit', (event) => {
 });
 
 document.body.addEventListener('click', (event) => {
+  const toggle = event.target.closest('[data-password-toggle]');
+  if (toggle) {
+    const input = toggle.parentElement.querySelector('input');
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    toggle.querySelector('[data-eye-open]').hidden = show;
+    toggle.querySelector('[data-eye-shut]').hidden = !show;
+    return;
+  }
   const closer = event.target.closest('[data-close]');
   if (!closer) return;
   document.getElementById(closer.dataset.close).close();

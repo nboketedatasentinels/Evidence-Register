@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -299,19 +300,26 @@ app.post('/api/folder', (req, res) => {
 const loop = require('./lib/loop');
 
 function loopResult(res, work) {
-  try {
-    res.json(work());
-  } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
-  }
+  Promise.resolve()
+    .then(() => work())
+    .then((value) => res.json(value))
+    .catch((error) => res.status(error.status || 500).json({ error: error.message }));
+}
+
+function publicOrigin(req) {
+  const configured = String(process.env.PUBLIC_URL || '').trim().replace(/\/$/, '');
+  if (configured) return configured;
+  const host = req.get('host');
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
+  return host ? `${proto}://${host}` : '';
 }
 
 function bearer(req) {
   return String(req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
 }
 
-function actorBody(req) {
-  const actorId = loop.personIdForToken(bearer(req));
+async function actorBody(req) {
+  const actorId = await loop.personIdForToken(bearer(req));
   if (!actorId) {
     const error = new Error('Sign in to continue.');
     error.status = 401;
@@ -322,11 +330,12 @@ function actorBody(req) {
     actorId,
     ip: clean(req.ip || '', 80),
     userAgent: clean(req.get('user-agent') || '', 180),
+    origin: publicOrigin(req),
   };
 }
 
-app.get('/api/loop', (req, res) => loopResult(res, () => {
-  const body = actorBody(req);
+app.get('/api/loop', (req, res) => loopResult(res, async () => {
+  const body = await actorBody(req);
   return { workspace: loop.read(), actorId: body.actorId };
 }));
 
@@ -337,30 +346,44 @@ app.post('/api/auth/signup', (req, res) => loopResult(res, () => loop.register({
 })));
 app.get('/api/auth/invite', (req, res) => loopResult(res, () => loop.publicInvite(clean(req.query.token, 80))));
 app.post('/api/auth/login', (req, res) => loopResult(res, () => loop.login(req.body)));
-app.post('/api/auth/logout', (req, res) => {
-  loop.logout(bearer(req));
-  res.json({ ok: true });
-});
+app.post('/api/auth/forgot', (req, res) => loopResult(res, () => loop.requestReset({
+  email: req.body.email,
+  origin: publicOrigin(req),
+})));
+app.get('/api/auth/reset', (req, res) => loopResult(res, () => loop.publicReset(clean(req.query.token, 80))));
+app.post('/api/auth/reset', (req, res) => loopResult(res, () => loop.completeReset(req.body)));
+app.post('/api/auth/logout', (req, res) => loopResult(res, async () => {
+  await loop.logout(bearer(req));
+  return { ok: true };
+}));
 
-app.post('/api/loop/review', (req, res) => loopResult(res, () => loop.review(actorBody(req))));
-app.post('/api/loop/evidence', (req, res) => loopResult(res, () => loop.addEvidence(actorBody(req))));
-app.post('/api/loop/controls', (req, res) => loopResult(res, () => loop.addControl(actorBody(req))));
-app.post('/api/loop/templates', (req, res) => loopResult(res, () => loop.applyTemplate(actorBody(req))));
-app.post('/api/loop/fix', (req, res) => loopResult(res, () => loop.submitFix(actorBody(req))));
-app.post('/api/loop/verify', (req, res) => loopResult(res, () => loop.verify(actorBody(req))));
-app.post('/api/loop/organisation', (req, res) => loopResult(res, () => loop.setOrganisation(actorBody(req))));
-app.post('/api/loop/reminders', (req, res) => loopResult(res, () => loop.setReminders(actorBody(req))));
-app.post('/api/loop/people', (req, res) => loopResult(res, () => loop.addPerson(actorBody(req))));
-app.post('/api/loop/roles', (req, res) => loopResult(res, () => loop.setRoles(actorBody(req))));
-app.post('/api/loop/units', (req, res) => loopResult(res, () => loop.addUnit(actorBody(req))));
-app.post('/api/loop/systems', (req, res) => loopResult(res, () => loop.addSystem(actorBody(req))));
-app.post('/api/loop/placement', (req, res) => loopResult(res, () => loop.setPlacement(actorBody(req))));
-app.post('/api/loop/reviewer', (req, res) => loopResult(res, () => loop.assignReviewer(actorBody(req))));
-app.post('/api/loop/invite', (req, res) => loopResult(res, () => loop.invitePerson(actorBody(req))));
-app.post('/api/loop/people-import', (req, res) => loopResult(res, () => loop.importPeople(actorBody(req))));
-app.post('/api/loop/invite-pen', (req, res) => loopResult(res, () => loop.setInvitePen(actorBody(req))));
-app.post('/api/loop/acknowledge', (req, res) => loopResult(res, () => loop.acknowledge(actorBody(req))));
+app.post('/api/loop/review', (req, res) => loopResult(res, async () => loop.review(await actorBody(req))));
+app.post('/api/loop/evidence', (req, res) => loopResult(res, async () => loop.addEvidence(await actorBody(req))));
+app.post('/api/loop/controls', (req, res) => loopResult(res, async () => loop.addControl(await actorBody(req))));
+app.post('/api/loop/templates', (req, res) => loopResult(res, async () => loop.applyTemplate(await actorBody(req))));
+app.post('/api/loop/fix', (req, res) => loopResult(res, async () => loop.submitFix(await actorBody(req))));
+app.post('/api/loop/verify', (req, res) => loopResult(res, async () => loop.verify(await actorBody(req))));
+app.post('/api/loop/organisation', (req, res) => loopResult(res, async () => loop.setOrganisation(await actorBody(req))));
+app.post('/api/loop/reminders', (req, res) => loopResult(res, async () => loop.setReminders(await actorBody(req))));
+app.post('/api/loop/people', (req, res) => loopResult(res, async () => loop.addPerson(await actorBody(req))));
+app.post('/api/loop/roles', (req, res) => loopResult(res, async () => loop.setRoles(await actorBody(req))));
+app.post('/api/loop/units', (req, res) => loopResult(res, async () => loop.addUnit(await actorBody(req))));
+app.post('/api/loop/systems', (req, res) => loopResult(res, async () => loop.addSystem(await actorBody(req))));
+app.post('/api/loop/placement', (req, res) => loopResult(res, async () => loop.setPlacement(await actorBody(req))));
+app.post('/api/loop/reviewer', (req, res) => loopResult(res, async () => loop.assignReviewer(await actorBody(req))));
+app.post('/api/loop/invite', (req, res) => loopResult(res, async () => loop.invitePerson(await actorBody(req))));
+app.post('/api/loop/invite-email', (req, res) => loopResult(res, async () => loop.sendInvitationEmail(await actorBody(req))));
+app.post('/api/loop/people-import', (req, res) => loopResult(res, async () => loop.importPeople(await actorBody(req))));
+app.post('/api/loop/invite-pen', (req, res) => loopResult(res, async () => loop.setInvitePen(await actorBody(req))));
+app.post('/api/loop/acknowledge', (req, res) => loopResult(res, async () => loop.acknowledge(await actorBody(req))));
 
-app.listen(PORT, () => {
-  console.log(`Evidence Register T4L running at http://localhost:${PORT}`);
+const db = require('./lib/db');
+
+db.init().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Evidence Register T4L running at http://localhost:${PORT}`);
+  });
+}).catch((error) => {
+  console.error(error.message || error);
+  process.exit(1);
 });
