@@ -358,6 +358,8 @@ app.post('/api/auth/logout', (req, res) => loopResult(res, async () => {
 }));
 
 app.post('/api/loop/review', (req, res) => loopResult(res, async () => loop.review(await actorBody(req))));
+app.post('/api/loop/evidence/file-slot', (req, res) => loopResult(res, async () => loop.reserveFile(await actorBody(req))));
+app.get('/api/loop/evidence/:id/file', (req, res) => loopResult(res, async () => loop.openFile({ ...(await actorBody(req)), evidenceId: req.params.id })));
 app.post('/api/loop/evidence', (req, res) => loopResult(res, async () => loop.addEvidence(await actorBody(req))));
 app.post('/api/loop/sign-evidence', (req, res) => loopResult(res, async () => loop.signEvidence(await actorBody(req))));
 app.post('/api/loop/controls', (req, res) => loopResult(res, async () => loop.addControl(await actorBody(req))));

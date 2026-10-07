@@ -436,7 +436,7 @@ function requirementLabel(control) {
   return `${control.id} · ${controlTitle(control)}`;
 }
 
-const STORAGE_LINE = 'Your evidence remains in its approved storage location. Evidence Register records its source, version and fingerprint and only accesses it according to your organisation\'s configuration.';
+const STORAGE_LINE = 'A file from this computer is kept in a private store so the reviewer can open it. A link records where a document already lives. Drive, SharePoint, and OneDrive are not fetched.';
 
 function localDay(date) {
   const y = date.getFullYear();
@@ -1501,7 +1501,7 @@ function renderUserEvidence() {
     return `<tr class="border-t border-line hover:bg-[#FAFBFC]">
       <td class="px-4 py-3 text-sm font-medium text-[#1860C8]">${escapeHtml(item.id)}</td>
       <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(control?.id || '—')}</td>
-      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.name)}</td>
+      <td class="px-4 py-3 text-sm font-medium">${fileButton(item)}</td>
       <td class="px-4 py-3 text-sm">${avatar(item.uploadedBy)}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(control ? person(control.reviewerId).name : '—')}</td>
       <td class="px-4 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span></td>
@@ -1662,7 +1662,7 @@ function renderEvidence() {
   const rows = evidenceRows().map((item) => `
     <tr class="border-t border-line align-top hover:bg-[#FAFBFC]">
       <td class="px-5 py-3">
-        <p class="text-sm font-medium">${escapeHtml(item.name)}</p>
+        <p class="text-sm font-medium">${fileButton(item)}</p>
         <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(item.id)} · v${item.version}${item.rejected ? ' · not used' : ''}</p>
       </td>
       <td class="px-5 py-3 text-sm">${avatar(item.uploadedBy)}</td>
@@ -1708,6 +1708,10 @@ function renderEvidence() {
     </div>`;
 }
 
+function fileButton(item) {
+  return `<button type="button" data-open-file="${escapeHtml(item.id)}" class="text-left text-sm font-semibold text-[#1860C8] underline decoration-[#1860C8]/30 underline-offset-2">${escapeHtml(item.name)}</button>`;
+}
+
 function safePlace(location) {
   const value = String(location || '').trim();
   if (/^https?:\/\//i.test(value)) {
@@ -1730,14 +1734,16 @@ function requirementBody(control) {
 function documentBody(item) {
   if (!item) return '<p class="text-sm leading-relaxed text-slate-600">No document has been filed for this requirement.</p>';
   const text = String(item.note || '').trim();
-  const place = item.location ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">Where it lives. ${safePlace(item.location)}</p>` : '';
+  const stored = String(item.location || '').startsWith('storage:');
+  const linked = item.location && !stored;
+  const place = linked ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">Where it lives. ${safePlace(item.location)}</p>` : '';
   const wording = text
     ? `<div class="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-700">${escapeHtml(text)}</div>`
-    : `<p class="mt-3 text-sm leading-relaxed text-slate-600">${item.location ? 'The register has the name and the place. Open that location to read the file.' : 'The register has the name and fingerprint. The wording inside this file was not kept, so it cannot be read here. Submit the document again.'}</p>`;
+    : `<p class="mt-3 text-sm leading-relaxed text-slate-600">${stored ? 'Open the document to read the file that was submitted.' : linked ? 'Open the recorded location to read the file.' : 'The register has the name and fingerprint. This file was saved before a copy was kept, so it cannot be opened. Submit the document again.'}</p>`;
   return `
     <div class="rounded-xl border border-line px-4 py-3">
       <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Document</p>
-      <p class="mt-2 text-sm font-semibold">${escapeHtml(item.name)}</p>
+      <div class="mt-2">${fileButton(item)}</div>
       ${wording}
       ${place}
     </div>`;
@@ -2571,6 +2577,11 @@ pane.addEventListener('click', (event) => {
     render();
     return;
   }
+  const openFile = event.target.closest('[data-open-file]');
+  if (openFile) {
+    openStoredFile(openFile.dataset.openFile);
+    return;
+  }
   const evidence = event.target.closest('[data-evidence]');
   if (evidence) {
     state.evidenceId = state.evidenceId === evidence.dataset.evidence ? '' : evidence.dataset.evidence;
@@ -2805,6 +2816,51 @@ document.addEventListener('change', (event) => {
   }
 });
 
+async function openStoredFile(evidenceId) {
+  let response;
+  try {
+    response = await fetch(`/api/loop/evidence/${encodeURIComponent(evidenceId)}/file`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    });
+  } catch {
+    state.error = 'The document could not be opened. Check the connection and try again.';
+    state.flash = '';
+    render();
+    return;
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.url) {
+    state.error = data.error || 'The document could not be opened.';
+    state.flash = '';
+    render();
+    return;
+  }
+  window.open(data.url, '_blank', 'noopener');
+}
+
+async function storeComputerFile(file) {
+  if (file.size > 20 * 1024 * 1024) throw new Error('Use a document under 20 MB.');
+  const response = await fetch('/api/loop/evidence/file-slot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+    body: JSON.stringify({ name: file.name }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.uploadUrl || !data.storagePath) {
+    throw new Error(data.error || 'The document could not be stored.');
+  }
+  const uploaded = await fetch(data.uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'x-upsert': 'true',
+    },
+    body: file,
+  });
+  if (!uploaded.ok) throw new Error('The document did not upload. Choose the file again.');
+  return data.storagePath;
+}
+
 async function evidenceBody(form) {
   const data = new FormData(form);
   const sourceId = String(data.get('sourceId') || '');
@@ -2813,6 +2869,7 @@ async function evidenceBody(form) {
   let name = String(data.get('name') || '').trim();
   let fileHash = '';
   let documentText = '';
+  let storagePath = '';
   if (source.connected) {
     const file = form.querySelector('input[name="document"]')?.files?.[0];
     if (!file) throw new Error('Choose a file from this computer.');
@@ -2822,6 +2879,7 @@ async function evidenceBody(form) {
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     fileHash = [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
     documentText = await readDocumentText(file, bytes);
+    storagePath = await storeComputerFile(file);
   }
   return {
     name,
@@ -2829,6 +2887,7 @@ async function evidenceBody(form) {
     controlIds: data.getAll('also'),
     note: data.get('note'),
     documentText,
+    storagePath,
     sourceId,
     location: data.get('location') || '',
     fileHash,
