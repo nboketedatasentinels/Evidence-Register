@@ -2376,8 +2376,6 @@ function playAuthEnter() {
   panel.classList.add('auth-enter');
 }
 
-let dashMotion = 0;
-
 function moveBlobs(blue, purple, started, now) {
   const t = (now - started) / 1000;
   blue.style.transform = `translate3d(${Math.sin(t * 0.45) * 26}px, ${Math.cos(t * 0.32) * 18}px, 0)`;
@@ -2404,29 +2402,10 @@ function startAuthMotion() {
   authMotion = requestAnimationFrame(frame);
 }
 
-function startDashMotion() {
-  if (dashMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const shell = document.getElementById('shell');
-  const blue = document.getElementById('dash-blob-blue');
-  const purple = document.getElementById('dash-blob-purple');
-  if (!shell || !blue || !purple) return;
-  const started = performance.now();
-  function frame(now) {
-    if (shell.classList.contains('hidden')) {
-      dashMotion = 0;
-      return;
-    }
-    moveBlobs(blue, purple, started, now);
-    dashMotion = requestAnimationFrame(frame);
-  }
-  dashMotion = requestAnimationFrame(frame);
-}
-
 function showApp() {
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('auth').classList.add('hidden');
   document.getElementById('shell').classList.remove('hidden');
-  startDashMotion();
   render();
 }
 
