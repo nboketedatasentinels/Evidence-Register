@@ -193,15 +193,21 @@
       </div>
     </section>
     <div id="shell" class="flex h-full">
-      <aside class="hidden w-[240px] shrink-0 flex-col bg-navy text-white md:flex">
-        <div class="px-5 pb-2 pt-6">
-          <p class="text-[15px] font-semibold tracking-tight">Evidence Register</p>
-          <p id="view-label" class="mt-1 text-sm text-white/80">User</p>
+      <aside class="hidden w-[248px] shrink-0 flex-col bg-[#1B1140] text-white md:flex">
+        <div class="flex items-center gap-3 px-5 pb-2 pt-6">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#6D28D9] text-sm font-semibold">ER</span>
+          <span>
+            <p class="text-[15px] font-semibold tracking-tight">Evidence Register</p>
+            <p id="view-label" class="text-xs text-white/60">User</p>
+          </span>
         </div>
-        <nav id="side-nav" class="mt-6 flex flex-1 flex-col gap-0.5 px-3" aria-label="Sections"></nav>
-        <div class="mt-auto border-t border-white/10 px-4 py-4">
-          <p id="side-person" class="truncate text-sm font-medium">Evidence Register</p>
-          <p id="profile-note" class="mt-0.5 text-[11px] leading-relaxed text-white/50">ISO/IEC 42001</p>
+        <nav id="side-nav" class="mt-6 flex flex-1 flex-col gap-1 px-3" aria-label="Sections"></nav>
+        <div class="mt-auto flex items-center gap-3 border-t border-white/10 px-4 py-4">
+          <span id="side-mark" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">ER</span>
+          <span class="min-w-0">
+            <p id="side-person" class="truncate text-sm font-medium">Evidence Register</p>
+            <p id="profile-note" class="truncate text-[11px] text-white/50">ISO/IEC 42001</p>
+          </span>
         </div>
       </aside>
 
@@ -218,7 +224,6 @@
           </div>
           <div class="relative flex items-center gap-3 text-sm">
             <p id="header-date" class="hidden text-sm text-slate-500 lg:block"></p>
-            <button type="button" id="header-upload" hidden class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Upload</button>
             <button type="button" id="note-bell" class="relative rounded-lg border border-line p-2 text-slate-600" aria-label="Notifications">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
               <span id="note-count" hidden class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white"></span>
@@ -230,7 +235,11 @@
               </div>
               <div id="note-list" class="mt-2 max-h-80 overflow-y-auto"></div>
             </div>
-            <span id="signed-name" class="font-medium"></span>
+            <span class="hidden text-right sm:block">
+              <span id="signed-name" class="block text-sm font-medium leading-tight"></span>
+              <span id="header-role" class="block text-xs text-slate-500"></span>
+            </span>
+            <button type="button" id="header-upload" hidden class="rounded-lg bg-[#6D28D9] px-3 py-2 text-sm font-medium text-white">Upload Evidence</button>
             <button type="button" id="sign-out" class="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-slate-600">Sign out</button>
           </div>
         </header>
@@ -346,6 +355,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=41"></script>
+    <script src="/app.js?v=43"></script>
   </body>
 </html>

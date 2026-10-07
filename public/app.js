@@ -22,8 +22,8 @@ function pathProfile() {
 const NAVS = {
   uploader: [
     ['dashboard', 'Dashboard', icon('grid')],
-    ['evidence', 'Evidence', icon('file')],
-    ['upload', 'Upload', icon('upload')],
+    ['evidence', 'Evidence Register', icon('file')],
+    ['upload', 'Upload Evidence', icon('upload')],
     ['tickets', 'Tickets', icon('ticket')],
     ['profile', 'Profile', icon('user')],
     ['history', 'History', icon('clock')],
@@ -68,6 +68,8 @@ const state = {
   ticketId: '',
   evidenceId: '',
   evidenceTab: 'overview',
+  profileTab: 'info',
+  showHash: false,
   evidenceStatus: 'all',
   evidenceOwner: 'all',
   evidenceControl: 'all',
@@ -300,14 +302,18 @@ function ackCards() {
   if (!rows.length) return '';
   const onFile = (ws().acknowledgements || []).some((row) => row.personId === state.actorId && row.status === 'signed');
   return rows.map((row) => `
-    <form data-ack-form="${escapeHtml(row.id)}" class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-5">
-      <p class="text-xs font-medium uppercase tracking-[0.14em] text-amber-900">Acknowledgement</p>
-      <p class="mt-2 text-sm leading-relaxed text-amber-950">${escapeHtml(row.statement)}</p>
-      <p class="mt-2 text-xs text-amber-900">${escapeHtml(row.controlId)} · version ${escapeHtml(String(row.itemVersion))}. ${onFile ? 'Confirm the signature already on your profile for this responsibility.' : 'A signature is asked for because of this assignment, not because you joined.'}</p>
-      <label class="mt-3 block text-sm font-medium text-amber-950">Signature
-        <input name="signature" required maxlength="80" value="${escapeHtml(actor().name)}" class="mt-1 w-full max-w-sm rounded-lg border border-amber-200 bg-white px-3 py-2 font-normal outline-none" />
+    <form data-ack-form="${escapeHtml(row.id)}" class="mb-5 rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold">Sign to acknowledge</h2>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600">${escapeHtml(row.statement)}</p>
+      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div><dt class="text-xs text-slate-500">Control</dt><dd class="font-medium">${escapeHtml(row.controlId)}</dd></div>
+        <div><dt class="text-xs text-slate-500">Your role</dt><dd class="font-medium">${escapeHtml(actor().title || actor().role || 'User')}</dd></div>
+      </dl>
+      <label class="mt-4 block text-sm font-medium">Signature
+        <input name="signature" required maxlength="80" value="${escapeHtml(actor().name)}" class="mt-1 w-full rounded-lg border border-line px-3 py-3 font-serif text-lg font-normal outline-none focus:border-[#6D28D9]" />
       </label>
-      <button type="submit" class="mt-3 rounded-lg bg-navy px-3.5 py-2 text-sm font-medium text-white">${onFile ? 'Confirm signature' : 'Acknowledge'}</button>
+      <label class="mt-3 flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" required class="mt-1" /> <span>I confirm that I have reviewed and acknowledge this responsibility.</span></label>
+      <div class="mt-4 flex justify-end"><button type="submit" class="rounded-lg bg-[#6D28D9] px-4 py-2 text-sm font-medium text-white">${onFile ? 'Confirm signature' : 'Sign & Confirm'}</button></div>
     </form>`).join('');
 }
 
@@ -528,13 +534,21 @@ function renderUploaderHome() {
   const pending = all.filter((control) => control.decision?.review === 'awaiting' && control.evidenceIds?.length);
   const assigned = myTickets();
   const counts = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE'].map((status) => [status, all.filter((control) => control.agreed === status).length]);
+  const dots = { MET: 'bg-emerald-500', PARTIAL: 'bg-amber-400', 'NOT MET': 'bg-rose-500', 'NO EVIDENCE': 'bg-slate-300' };
   const legend = counts.map(([status, count]) => {
     const share = all.length ? Math.round((count / all.length) * 100) : 0;
-    return `<li class="flex items-center justify-between gap-3 text-sm"><span class="flex items-center gap-2">${pill(status)}</span><span class="text-slate-500">${share}% · ${count}</span></li>`;
+    return `<li class="flex items-center justify-between gap-3 text-sm"><span class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full ${dots[status]}"></span>${escapeHtml(STATUS[status][0])}</span><span class="text-slate-500">${share}% (${count})</span></li>`;
   }).join('');
-  const activity = (ws().history || []).slice(0, 6).map((row) => `
-    <li class="flex items-start justify-between gap-3 border-t border-line py-3">
-      <p class="text-sm leading-relaxed"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}</p>
+  const met = counts.find(([status]) => status === 'MET')?.[1] || 0;
+  const health = all.length ? Math.round((met / all.length) * 100) : 0;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const thisWeek = files.filter((item) => new Date(item.uploadedAt).getTime() >= weekAgo).length;
+  const activity = (ws().history || []).slice(0, 5).map((row) => `
+    <li class="flex items-start gap-3 border-t border-line py-3">
+      <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F3EEFF] text-[#6D28D9]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+      </span>
+      <p class="min-w-0 flex-1 text-sm leading-relaxed">${escapeHtml(row.text)}</p>
       <span class="shrink-0 text-xs text-slate-400">${escapeHtml(ago(row.at))}</span>
     </li>`).join('');
   const soon = shiftDay(day, 7);
@@ -554,58 +568,58 @@ function renderUploaderHome() {
     })),
   ].slice(0, 5);
   const upcomingRows = upcoming.map((row) => `
-    <li class="flex items-start justify-between gap-3 border-t border-line py-3">
-      <button type="button" data-go="${row.go}" ${row.evidence ? `data-evidence-open="${escapeHtml(row.evidence)}"` : ''} class="text-left text-sm font-medium text-ink">${escapeHtml(row.title)}</button>
+    <li class="flex items-start gap-3 border-t border-line py-3">
+      <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${row.late ? 'bg-rose-500' : 'bg-amber-400'}"></span>
+      <button type="button" data-go="${row.go}" ${row.evidence ? `data-evidence-open="${escapeHtml(row.evidence)}"` : ''} class="min-w-0 flex-1 text-left text-sm">${escapeHtml(row.title)}</button>
       <span class="shrink-0 text-xs ${row.late ? 'text-rose-700' : 'text-slate-500'}">${escapeHtml(row.meta)}</span>
     </li>`).join('');
   const gaps = all.filter((control) => control.agreed === 'NO EVIDENCE').length;
+  const notMet = all.filter((control) => control.agreed === 'NOT MET').length;
   const expiring = mine.filter((item) => item.reviewDue && item.reviewDue <= soon).length;
   const overdue = assigned.filter((ticket) => ticket.due && ticket.due < day).length;
-  const insights = [
-    gaps ? [`${gaps} requirement${gaps === 1 ? '' : 's'} still have no document`, 'bg-rose-50 text-rose-900'] : '',
-    expiring ? [`${expiring} of your documents ${expiring === 1 ? 'is' : 'are'} due for review`, 'bg-amber-50 text-amber-950'] : '',
-    assigned.length ? [`${assigned.length} open ticket${assigned.length === 1 ? '' : 's'} assigned to you`, 'bg-[#F4F8FE] text-[#163A66]'] : '',
-    overdue ? [`${overdue} ticket${overdue === 1 ? ' is' : 's are'} overdue`, 'bg-rose-50 text-rose-900'] : '',
-  ].filter(Boolean);
-  const insightRow = insights.length
-    ? insights.map(([text, tone]) => `<p class="rounded-xl px-4 py-3 text-sm font-medium ${tone}">${escapeHtml(text)}</p>`).join('')
-    : '<p class="rounded-xl bg-mist px-4 py-3 text-sm text-slate-600">Nothing is waiting on you right now.</p>';
+  const insight = (wash, icon, count, label, note) => `<article class="flex items-center gap-3 rounded-2xl px-4 py-3 ${wash}">${icon}<span><p class="text-sm font-semibold">${count} ${escapeHtml(label)}</p><p class="text-xs text-slate-500">${escapeHtml(note)}</p></span></article>`;
   pane.innerHTML = `
     ${banner()}
     ${noteCards()}
     ${ackCards()}
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(framework)}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(greeting())}</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">Your documents, the requirements they support, and what a reviewer still has to check. A reading is calculated from the record. A named person decides. This is not a certificate.</p>
-      </div>
-      <button type="button" data-go="upload" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload a document</button>
+    <div>
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">${escapeHtml(framework)}</p>
+      <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(greeting())}</h1>
+      <p class="mt-1 text-sm text-slate-500">Here's what's happening with your evidence and governance.</p>
     </div>
-    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Requirements</p><p class="mt-2 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">On the control set</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Documents</p><p class="mt-2 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">${mine.length} filed by you</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Waiting for review</p><p class="mt-2 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">A person still has to check</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Your tickets</p><p class="mt-2 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue ? `${overdue} overdue` : 'Assigned to you'}</p></article>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F3EEFF] text-[#6D28D9]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">${escapeHtml(framework)}</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-emerald-600">+${thisWeek} this week</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs ${overdue ? 'text-rose-600' : 'text-slate-400'}">${overdue} overdue</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width:${health}%"></div></div></article>
     </div>
     <div class="mt-4 grid gap-4 xl:grid-cols-3">
-      <section class="rounded-2xl border border-line bg-white p-5 xl:col-span-1">
-        <h2 class="text-sm font-semibold">Requirement status</h2>
-        <div class="mt-4 flex flex-wrap items-center gap-4">
+      <section class="rounded-2xl border border-line bg-white p-5 shadow-sm">
+        <h2 class="text-sm font-semibold">Control status</h2>
+        <div class="mt-4 flex flex-wrap items-center gap-5">
           ${statusDonut(counts)}
-          <ul class="min-w-[10rem] flex-1 space-y-2">${legend}</ul>
+          <ul class="min-w-[11rem] flex-1 space-y-2.5">${legend}</ul>
         </div>
       </section>
-      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
+      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5 shadow-sm">
         <h2 class="text-sm font-semibold">Recent activity</h2>
         <ul class="mt-2">${activity || '<li class="border-t border-line py-4 text-sm text-slate-500">Nothing has been recorded yet.</li>'}</ul>
       </section>
-      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
-        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Coming up</h2><button type="button" data-go="tickets" class="text-xs font-medium text-brand">Tickets</button></div>
+      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5 shadow-sm">
+        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Upcoming / overdue</h2><button type="button" data-go="tickets" class="text-xs font-medium text-[#6D28D9]">View all</button></div>
         <ul class="mt-2">${upcomingRows || '<li class="border-t border-line py-4 text-sm text-slate-500">No review date or ticket is due.</li>'}</ul>
       </section>
     </div>
-    <div class="mt-4 grid gap-3 md:grid-cols-2">${insightRow}</div>`;
+    <section class="mt-4">
+      <h2 class="text-sm font-semibold">Key Insights</h2>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${insight('bg-[#F6F1FF]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#7C3AED] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span>', notMet, notMet === 1 ? 'Critical issue' : 'Critical issues', 'Requires immediate attention')}
+        ${insight('bg-[#FFF7ED]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#F59E0B] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l2 2"/></svg></span>', expiring, 'Evidence expiring soon', 'Within 7 days')}
+        ${insight('bg-[#EFF6FF]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#3B82F6] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></span>', gaps, gaps === 1 ? 'Open gap' : 'Open gaps', 'Need remediation')}
+        ${insight('bg-[#ECFDF3]', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#22C55E] text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16v12H4z"/><path d="M4 8l8 6 8-6"/></svg></span>', overdue, overdue === 1 ? 'Overdue ticket' : 'Overdue tickets', 'Action required')}
+      </div>
+    </section>`;
 }
 
 function field(label, name, value, extra = '') {
@@ -1055,60 +1069,60 @@ function renderUpload() {
       <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">A document is checked against a requirement under ${escapeHtml(framework)}. An admin has not added one yet, so there is nowhere to file it.</p>`;
     return;
   }
-  const steps = ['Where it lives', 'Requirement', 'Details', 'Confirm'];
+  const steps = ['Select control', 'Upload file', 'Add details', 'Confirm'];
   const pips = steps.map((label, index) => {
     const number = index + 1;
     const on = state.uploadStep === number;
     const done = state.uploadStep > number;
-    return `<li data-upload-pip="${number}" class="flex items-center gap-2 text-sm ${on ? 'font-semibold text-ink' : 'text-slate-400'}"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${on || done ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}">${number}</span>${escapeHtml(label)}</li>`;
+    return `<li data-upload-pip="${number}" class="flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#6D28D9]' : 'text-slate-400'}"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#6D28D9] text-white' : 'bg-slate-100 text-slate-500'}">${number}</span>${escapeHtml(label)}</li>`;
   }).join('');
   pane.innerHTML = `
     ${banner()}
-    <h1 class="text-2xl font-semibold tracking-tight">Upload a document</h1>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">The reviewer for that requirement is told when this is filed. You cannot approve your own document.</p>
-    <form id="user-upload-form" class="mt-5 rounded-2xl border border-line bg-white p-5">
-      <ol class="flex flex-wrap gap-x-5 gap-y-2">${pips}</ol>
+    <h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500">The reviewer for the selected requirement is notified. You cannot approve your own document.</p>
+    <form id="user-upload-form" class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <ol class="flex flex-wrap gap-x-6 gap-y-3">${pips}</ol>
       <div data-upload-panel="1" ${state.uploadStep === 1 ? '' : 'hidden'}>
-        <label class="mt-5 block text-sm font-medium">Where it lives
-          <select name="sourceId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none">${evidenceSources().map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)}${source.connected ? '' : ' · not connected'}</option>`).join('')}</select>
+        <label class="mt-6 block text-sm font-medium">Select control
+          <select name="controlId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal">${controls.map(controlChoice).join('')}</select>
         </label>
-        <div data-source-file class="mt-3">
+        ${controls.length > 1 ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-36 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml((control.requirement || control.expected || '').slice(0, 90))}</span></label>`).join('')}</div></fieldset>` : ''}
+      </div>
+      <div data-upload-panel="2" ${state.uploadStep === 2 ? '' : 'hidden'}>
+        <label class="mt-6 block text-sm font-medium">Where it lives
+          <select name="sourceId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal outline-none">${evidenceSources().map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)}${source.connected ? '' : ' · not connected'}</option>`).join('')}</select>
+        </label>
+        <div data-source-file class="mt-4">
           <label class="block text-sm font-medium">File on this computer
-            <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-mist file:px-3 file:py-2 file:text-sm file:font-medium" />
+            <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-[#F3EEFF] file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#6D28D9]" />
           </label>
           <p class="mt-1 text-xs text-slate-500">The register keeps the file name and a fingerprint. It does not keep a copy of the file.</p>
         </div>
-        <div data-source-place hidden class="mt-3">
+        <div data-source-place hidden class="mt-4">
           <label class="block text-sm font-medium">Where the document already lives
-            <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+            <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]" />
           </label>
           <p class="mt-1 text-xs text-slate-500">This place is not connected. Record the link or path. The file stays where it is.</p>
         </div>
       </div>
-      <div data-upload-panel="2" ${state.uploadStep === 2 ? '' : 'hidden'}>
-        <label class="mt-5 block text-sm font-medium">Requirement
-          <select name="controlId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">${controls.map(controlChoice).join('')}</select>
-        </label>
-        ${controls.length > 1 ? `<fieldset class="mt-3"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-40 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml((control.requirement || control.expected || '').slice(0, 90))}</span></label>`).join('')}</div></fieldset>` : ''}
-      </div>
       <div data-upload-panel="3" ${state.uploadStep === 3 ? '' : 'hidden'}>
-        <label class="mt-5 block text-sm font-medium">Document name
-          <input name="name" maxlength="160" placeholder="AI_Risk_Assessment_2026.pdf" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        <label class="mt-6 block text-sm font-medium">Evidence title
+          <input name="name" maxlength="160" placeholder="AI Risk Register" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]" />
         </label>
-        <label class="mt-3 block text-sm font-medium">What the document shows
-          <textarea name="note" maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand"></textarea>
+        <label class="mt-4 block text-sm font-medium">Description
+          <textarea name="note" maxlength="500" rows="4" placeholder="What this document shows" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]"></textarea>
         </label>
-        <label class="mt-3 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
-          <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        <label class="mt-4 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
+          <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#6D28D9]" />
         </label>
       </div>
       <div data-upload-panel="4" ${state.uploadStep === 4 ? '' : 'hidden'}>
         <div id="upload-summary" class="mt-5 rounded-xl bg-mist p-4 text-sm leading-relaxed text-slate-700"></div>
       </div>
       <div class="mt-5 flex items-center justify-between gap-3">
-        <button type="button" id="upload-back" class="rounded-lg border border-line px-3 py-2 text-sm ${state.uploadStep === 1 ? 'invisible' : ''}">Back</button>
-        <button type="button" id="upload-next" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white ${state.uploadStep === 4 ? 'hidden' : ''}">Next</button>
-        <button type="submit" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70 ${state.uploadStep === 4 ? '' : 'hidden'}">Upload document</button>
+        <button type="button" id="upload-back" class="rounded-lg border border-line px-4 py-2 text-sm ${state.uploadStep === 1 ? 'invisible' : ''}">Back</button>
+        <button type="button" id="upload-next" class="rounded-lg bg-[#6D28D9] px-4 py-2 text-sm font-medium text-white ${state.uploadStep === 4 ? 'hidden' : ''}">Next</button>
+        <button type="submit" class="rounded-lg bg-[#6D28D9] px-4 py-2 text-sm font-medium text-white disabled:opacity-70 ${state.uploadStep === 4 ? '' : 'hidden'}">Upload Evidence</button>
       </div>
     </form>`;
   const form = document.getElementById('user-upload-form');
@@ -1142,15 +1156,16 @@ function fillUploadSummary(form) {
 }
 
 function uploadStepReady(form, step) {
-  if (step === 1) {
+  if (step === 1 && !form.elements.controlId?.value) return 'Select a control.';
+  if (step === 2) {
     const source = evidenceSources().find((row) => row.id === form.elements.sourceId?.value);
     if (!source) return 'Choose where the document lives.';
     if (source.connected && !form.querySelector('input[name="document"]')?.files?.[0]) return 'Choose a file from this computer.';
     if (!source.connected && !String(form.elements.location?.value || '').trim()) return `Record where the document lives in ${source.name}.`;
   }
   if (step === 3) {
-    if (!String(form.elements.name?.value || '').trim()) return 'Give the document a name.';
-    if (!String(form.elements.note?.value || '').trim()) return 'Say what the document shows.';
+    if (!String(form.elements.name?.value || '').trim()) return 'Give the document a title.';
+    if (!String(form.elements.note?.value || '').trim()) return 'Add a description.';
   }
   return '';
 }
@@ -1166,9 +1181,9 @@ function showUploadStep(step) {
     const number = Number(pip.dataset.uploadPip);
     const on = number === step;
     const done = number < step;
-    pip.className = `flex items-center gap-2 text-sm ${on ? 'font-semibold text-ink' : 'text-slate-400'}`;
+    pip.className = `flex items-center gap-2 text-sm ${on ? 'font-semibold text-[#6D28D9]' : 'text-slate-400'}`;
     const badge = pip.querySelector('span');
-    if (badge) badge.className = `inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${on || done ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`;
+    if (badge) badge.className = `inline-flex h-7 w-7 items-center justify-center rounded-full text-xs ${on || done ? 'bg-[#6D28D9] text-white' : 'bg-slate-100 text-slate-500'}`;
   });
   const back = document.getElementById('upload-back');
   const next = document.getElementById('upload-next');
@@ -1179,14 +1194,21 @@ function showUploadStep(step) {
   if (step === 4) fillUploadSummary(form);
 }
 
+function fileStatus(item) {
+  if (item.rejected) return ['Rejected', 'bg-rose-50 text-rose-700'];
+  const control = controlById(item.controlIds[0]);
+  if (control?.decision?.review === 'confirmed' && control.agreed === 'MET') return ['Approved', 'bg-emerald-50 text-emerald-700'];
+  if (!item.hasReview || control?.decision?.review === 'awaiting') return ['Under review', 'bg-amber-50 text-amber-800'];
+  if (control?.agreed === 'NOT MET') return ['Rejected', 'bg-rose-50 text-rose-700'];
+  return ['Pending', 'bg-slate-100 text-slate-600'];
+}
+
 function userEvidenceList() {
+  const wanted = { approved: 'Approved', review: 'Under review', rejected: 'Rejected', pending: 'Pending' }[state.evidenceStatus];
   return evidenceRows().filter((item) => {
     if (state.evidenceOwner !== 'all' && item.uploadedBy !== state.evidenceOwner) return false;
     if (state.evidenceControl !== 'all' && !item.controlIds.includes(state.evidenceControl)) return false;
-    if (state.evidenceStatus !== 'all') {
-      const control = controlById(item.controlIds[0]);
-      if ((control?.agreed || 'NO EVIDENCE') !== state.evidenceStatus) return false;
-    }
+    if (wanted && fileStatus(item)[0] !== wanted) return false;
     return true;
   });
 }
@@ -1206,35 +1228,38 @@ function renderUserEvidence() {
   const owners = [...new Map((ws().evidence || []).map((item) => [item.uploadedBy, person(item.uploadedBy).name])).entries()];
   const body = slice.map((item) => {
     const control = controlById(item.controlIds[0]);
+    const [label, tone] = fileStatus(item);
     return `<tr class="border-t border-line hover:bg-[#FAFBFC]">
-      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.id)}<span class="mt-0.5 block text-xs font-normal text-slate-500">v${item.version}</span></td>
-      <td class="px-4 py-3 text-sm">${escapeHtml(item.name)}</td>
-      <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(item.controlIds.join(', '))}</td>
+      <td class="px-4 py-3 text-sm font-medium text-[#6D28D9]">${escapeHtml(item.id)}</td>
+      <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(control?.id || '—')}</td>
+      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.name)}</td>
       <td class="px-4 py-3 text-sm">${avatar(item.uploadedBy)}</td>
-      <td class="px-4 py-3">${pill(control?.agreed || 'NO EVIDENCE')}</td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(control ? person(control.reviewerId).name : '—')}</td>
+      <td class="px-4 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span></td>
       <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(when(item.uploadedAt))}</td>
-      <td class="px-4 py-3 text-right"><button type="button" data-evidence="${escapeHtml(item.id)}" class="text-sm font-medium text-brand">Open</button></td>
+      <td class="px-4 py-3 text-right"><button type="button" data-evidence="${escapeHtml(item.id)}" class="text-sm font-medium text-[#6D28D9]">Open</button></td>
     </tr>`;
   }).join('');
-  const pager = pages > 1 ? `<div class="flex items-center justify-between border-t border-line px-4 py-3 text-sm text-slate-500"><span>Showing ${start + 1}–${Math.min(start + pageSize, rows.length)} of ${rows.length}</span><span class="flex gap-2">${Array.from({ length: pages }, (_, index) => `<button type="button" data-evidence-page="${index + 1}" class="rounded-md px-2 py-1 ${state.evidencePage === index + 1 ? 'bg-brand text-white' : 'border border-line'}">${index + 1}</button>`).join('')}</span></div>` : '';
+  const shown = rows.length ? `${start + 1}–${Math.min(start + pageSize, rows.length)}` : '0';
+  const pager = `<div class="flex items-center justify-between border-t border-line px-4 py-3 text-sm text-slate-500"><span>Showing ${shown} of ${rows.length}</span><span class="flex gap-2">${Array.from({ length: pages }, (_, index) => `<button type="button" data-evidence-page="${index + 1}" class="h-8 w-8 rounded-lg ${state.evidencePage === index + 1 ? 'bg-[#6D28D9] text-white' : 'border border-line'}">${index + 1}</button>`).join('')}</span></div>`;
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Evidence</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">Each document is recorded against a requirement. Open one to see the fingerprint, the calculated reading, and the history.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Evidence Register</h1>
+        <p class="mt-1 text-sm text-slate-500">View and manage all evidence submissions.</p>
       </div>
-      <button type="button" data-go="upload" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload a document</button>
+      <button type="button" data-go="upload" class="rounded-lg bg-[#6D28D9] px-3.5 py-2 text-sm font-medium text-white">Upload Evidence</button>
     </div>
     <div class="mt-5 flex flex-wrap gap-2">
-      <select data-evidence-filter="evidenceControl" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All requirements</option>${(ws().controls || []).map((control) => `<option value="${escapeHtml(control.id)}" ${state.evidenceControl === control.id ? 'selected' : ''}>${escapeHtml(control.id)}</option>`).join('')}</select>
-      <select data-evidence-filter="evidenceStatus" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All readings</option>${Object.keys(STATUS).map((status) => `<option value="${status}" ${state.evidenceStatus === status ? 'selected' : ''}>${escapeHtml(STATUS[status][0])}</option>`).join('')}</select>
-      <select data-evidence-filter="evidenceOwner" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All people</option>${owners.map(([id, name]) => `<option value="${escapeHtml(id)}" ${state.evidenceOwner === id ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
+      <select data-evidence-filter="evidenceControl" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All controls</option>${(ws().controls || []).map((control) => `<option value="${escapeHtml(control.id)}" ${state.evidenceControl === control.id ? 'selected' : ''}>${escapeHtml(control.id)}</option>`).join('')}</select>
+      <select data-evidence-filter="evidenceStatus" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All statuses</option><option value="approved" ${state.evidenceStatus === 'approved' ? 'selected' : ''}>Approved</option><option value="review" ${state.evidenceStatus === 'review' ? 'selected' : ''}>Under review</option><option value="rejected" ${state.evidenceStatus === 'rejected' ? 'selected' : ''}>Rejected</option><option value="pending" ${state.evidenceStatus === 'pending' ? 'selected' : ''}>Pending</option></select>
+      <select data-evidence-filter="evidenceOwner" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All owners</option>${owners.map(([id, name]) => `<option value="${escapeHtml(id)}" ${state.evidenceOwner === id ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
     </div>
-    <div class="mt-4 overflow-hidden rounded-2xl border border-line bg-white">
+    <div class="mt-4 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
       <table class="w-full text-left">
-        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-medium">ID</th><th class="px-4 py-3 font-medium">Document</th><th class="px-4 py-3 font-medium">Requirement</th><th class="px-4 py-3 font-medium">Filed by</th><th class="px-4 py-3 font-medium">Reading</th><th class="px-4 py-3 font-medium">Submitted</th><th class="px-4 py-3"></th></tr></thead>
-        <tbody>${body || `<tr><td colspan="7" class="px-4 py-8 text-sm text-slate-500">${state.query || state.evidenceStatus !== 'all' || state.evidenceOwner !== 'all' || state.evidenceControl !== 'all' ? 'Nothing matches.' : 'No document has been filed yet.'}</td></tr>`}</tbody>
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-medium">ID</th><th class="px-4 py-3 font-medium">Control</th><th class="px-4 py-3 font-medium">Title</th><th class="px-4 py-3 font-medium">Uploader</th><th class="px-4 py-3 font-medium">Reviewer</th><th class="px-4 py-3 font-medium">Status</th><th class="px-4 py-3 font-medium">Submitted</th><th class="px-4 py-3 font-medium">Actions</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="8" class="px-4 py-8 text-sm text-slate-500">${state.query || state.evidenceStatus !== 'all' || state.evidenceOwner !== 'all' || state.evidenceControl !== 'all' ? 'Nothing matches.' : 'No document has been filed yet.'}</td></tr>`}</tbody>
       </table>
       ${pager}
     </div>`;
@@ -1244,86 +1269,113 @@ function renderEvidenceDetail(item) {
   const tab = state.evidenceTab || 'overview';
   const tabs = [
     ['overview', 'Overview'],
-    ['reading', 'Reading'],
-    ['history', 'History'],
-  ].map(([id, label]) => `<button type="button" data-evidence-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-brand text-brand' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
+    ['reading', 'AI Assessment'],
+    ['history', 'Review History'],
+    ['attachments', 'Attachments'],
+    ['comments', 'Comments'],
+  ].map(([id, label]) => `<button type="button" data-evidence-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#6D28D9] text-[#6D28D9]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
   const controls = item.controlIds.map((id) => controlById(id)).filter(Boolean);
   const primary = controls[0];
+  const [statusLabel, statusTone] = fileStatus(item);
+  const hashText = state.showHash ? item.hash : hashLine(item.hash);
   let body = '';
   if (tab === 'reading') {
     body = controls.map((control) => `
-      <section class="mt-4 rounded-xl border border-line p-4">
+      <section class="rounded-2xl border border-line bg-white p-5">
         <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-sm font-semibold">${escapeHtml(control.id)}</h2>${pill(control.agreed)}</div>
-        <p class="mt-2 text-sm leading-relaxed text-slate-600">${escapeHtml(control.judgement?.reason || '')}</p>
+        <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(control.judgement?.reason || '')}</p>
         <p class="mt-2 text-sm text-slate-600">${escapeHtml(control.judgement?.recommendation || '')}</p>
         ${sourceTrail(control.judgement || { sources: [] })}
-        <p class="mt-3 text-xs text-slate-500">This reading is calculated from the record. ${escapeHtml(person(control.reviewerId).name)} decides it.</p>
-      </section>`).join('') || '<p class="mt-4 text-sm text-slate-500">This document is not linked to a requirement.</p>';
+        <p class="mt-3 text-xs text-slate-500">This reading is calculated from the document on record. ${escapeHtml(person(control.reviewerId).name)} decides it. There is no separate model call.</p>
+      </section>`).join('') || '<p class="text-sm text-slate-500">This document is not linked to a requirement.</p>';
   } else if (tab === 'history') {
     const ids = [item.id, ...item.controlIds];
     const lines = (ws().history || []).filter((row) => ids.some((id) => String(row.text).includes(id)));
-    body = `<ul class="mt-4">${lines.map((row) => `<li class="border-t border-line py-3 text-sm"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}<span class="mt-1 block text-xs text-slate-400">${escapeHtml(whenTime(row.at))}</span></li>`).join('') || '<li class="py-3 text-sm text-slate-500">No history mentions this document yet.</li>'}</ul>`;
+    body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${lines.map((row) => `<li class="border-t border-line py-3 text-sm first:border-t-0"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}<span class="mt-1 block text-xs text-slate-400">${escapeHtml(whenTime(row.at))}</span></li>`).join('') || '<li class="py-4 text-sm text-slate-500">No review history yet.</li>'}</ul></section>`;
+  } else if (tab === 'attachments') {
+    body = `<section class="rounded-2xl border border-line bg-white p-5"><p class="text-sm font-medium">${escapeHtml(item.name)}</p><p class="mt-2 text-sm text-slate-600">${escapeHtml(item.location ? `${item.source} · ${item.location}` : (item.source || 'Recorded in the register'))}</p><p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(item.hash || 'No fingerprint')}</p><p class="mt-3 text-xs text-slate-500">The file itself is not stored. The register keeps the name, the place, and the fingerprint.</p></section>`;
+  } else if (tab === 'comments') {
+    const notes = controls.map((control) => control.decision?.comment).filter(Boolean);
+    body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${notes.map((note) => `<li class="border-t border-line py-3 text-sm first:border-t-0">${escapeHtml(note)}</li>`).join('') || '<li class="py-4 text-sm text-slate-500">No comments yet.</li>'}</ul></section>`;
   } else {
     const facts = [
-      ['Document', item.name],
-      ['Version', `v${item.version}`],
-      ['Where it lives', item.location ? `${item.source} · ${item.location}` : (item.source || 'Not recorded')],
-      ['Filed by', person(item.uploadedBy).name],
+      ['Title', item.name],
+      ['Control', primary ? `${primary.id} · ${primary.expected || primary.requirement}` : 'Not linked'],
+      ['Uploader', person(item.uploadedBy).name],
       ['Reviewer', primary ? person(primary.reviewerId).name : 'Not set'],
       ['Submitted', when(item.uploadedAt)],
-      ['Review date', item.reviewDue || 'Not set'],
-      ['Requirements', item.controlIds.join(', ') || 'None'],
-      ['Fingerprint', item.hash || 'Not recorded'],
+      ['Last updated', when(item.uploadedAt)],
     ];
-    body = `<dl class="mt-4 grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 break-all text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl><p class="mt-4 text-sm leading-relaxed text-slate-600">${escapeHtml(item.note || '')}</p>`;
+    body = `<div class="grid gap-4 lg:grid-cols-[1fr_16rem]">
+      <section class="rounded-2xl border border-line bg-white p-5"><dl class="grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl><p class="mt-4 text-sm leading-relaxed text-slate-600">${escapeHtml(item.note || '')}</p></section>
+      <aside class="rounded-2xl border border-line bg-white p-5">
+        <p class="text-sm font-semibold">Fingerprint</p>
+        <p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(hashText || 'Not recorded')}</p>
+        <button type="button" id="show-hash" class="mt-4 rounded-lg bg-[#F3EEFF] px-3 py-2 text-sm font-medium text-[#6D28D9]">${state.showHash ? 'Hide' : 'View'}</button>
+      </aside>
+    </div>`;
   }
   pane.innerHTML = `
     ${banner()}
-    <button type="button" id="evidence-back" class="text-sm font-medium text-brand">Back to evidence</button>
-    <div class="mt-3 flex flex-wrap items-end justify-between gap-3">
+    <button type="button" id="evidence-back" class="text-sm font-medium text-[#6D28D9]">Back to Evidence Register</button>
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(item.id)}</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(item.name)}</h1>
+        <p class="text-sm font-semibold text-[#6D28D9]">${escapeHtml(item.id)}</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(primary ? `${primary.id} · ${primary.expected || 'Requirement'}` : item.name)}</h1>
       </div>
-      ${pill(primary?.agreed || 'NO EVIDENCE')}
+      <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusTone}">${escapeHtml(statusLabel)}</span>
     </div>
-    <div class="mt-4 flex gap-1 border-b border-line">${tabs}</div>
-    ${body}`;
+    <div class="mt-4 flex gap-1 overflow-x-auto border-b border-line">${tabs}</div>
+    <div class="mt-4">${body}</div>`;
 }
 
 function renderProfile() {
   const who = actor();
-  const roles = (who.roles || []).map((role) => profileLabel(role === 'uploader' ? 'uploader' : role));
+  const roles = (who.roles || []).map((role) => profileLabel(role));
   const manager = who.managerId ? person(who.managerId).name : 'Not set';
+  const tab = state.profileTab || 'info';
+  const tabs = [
+    ['info', 'Personal Info'],
+    ['roles', 'Roles & Permissions'],
+    ['signature', 'Signature'],
+  ].map(([id, label]) => `<button type="button" data-profile-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#6D28D9] text-[#6D28D9]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
   const facts = [
     ['Full name', who.name],
     ['Email', who.email || 'Not set'],
     ['Department', who.unit || 'Not set'],
-    ['Job', who.title || who.role || 'Not set'],
+    ['Job title', who.title || who.role || 'Not set'],
     ['Manager', manager],
-    ['Employment', who.employmentType || 'employee'],
-    ['Age range', who.ageRange || 'Not set'],
-    ['Profiles', roles.join(', ') || 'User'],
+    ['Employment type', who.employmentType || 'employee'],
   ];
+  let panel = '';
+  if (tab === 'roles') {
+    panel = `<ul class="mt-4 space-y-2">${(who.roles || ['uploader']).map((role) => `<li class="rounded-xl border border-line px-4 py-3 text-sm"><span class="font-medium">${escapeHtml(profileLabel(role))}</span><span class="mt-1 block text-slate-500">${escapeHtml(PROFILE_NOTE[role] || '')}</span></li>`).join('')}</ul>`;
+  } else if (tab === 'signature') {
+    panel = `<div class="mt-4 rounded-xl border border-line p-4"><p class="text-sm font-medium">${escapeHtml(who.signatureStatus || 'Not signed')}</p><p class="mt-2 text-sm text-slate-500">A signature is kept when you acknowledge a responsibility. Joining the organisation does not require one.</p>${who.drawnSignature ? `<img src="${escapeHtml(who.drawnSignature)}" alt="Signature on file" class="mt-4 max-h-24" />` : ''}</div>`;
+  } else {
+    panel = `<dl class="mt-4 grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
+  }
   pane.innerHTML = `
     ${banner()}
-    <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">These details come from the person an admin added. A signature is asked for only when a responsibility needs one.</p>
-    <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_16rem]">
-      <section class="rounded-2xl border border-line bg-white p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-2xl font-semibold tracking-tight">My Profile</h1>
+    </div>
+    <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_18rem]">
+      <section class="rounded-2xl border border-line bg-white p-5 shadow-sm">
         <div class="flex items-center gap-3">
-          <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#E7EEF8] text-sm font-semibold text-navy">${escapeHtml(initials(who.name))}</span>
+          <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#F3EEFF] text-base font-semibold text-[#6D28D9]">${escapeHtml(initials(who.name))}</span>
           <div>
             <p class="text-lg font-semibold">${escapeHtml(who.name)}</p>
             <p class="text-sm text-slate-500">${escapeHtml(who.title || who.role || 'User')}</p>
           </div>
         </div>
-        <dl class="mt-5 grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl>
+        <div class="mt-4 flex gap-1 overflow-x-auto border-b border-line">${tabs}</div>
+        ${panel}
       </section>
-      <section class="rounded-2xl border border-line bg-white p-5">
-        <h2 class="text-sm font-semibold">Signature</h2>
-        <p class="mt-3 text-sm font-medium">${escapeHtml(who.signatureStatus || 'Not signed')}</p>
-        <p class="mt-2 text-sm text-slate-500">Joining the organisation does not require a signature. One is kept when you acknowledge a responsibility.</p>
+      <section class="h-fit rounded-2xl border border-line bg-white p-5 shadow-sm">
+        <h2 class="text-sm font-semibold">Signature status</h2>
+        <p class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-emerald-700"><span class="h-2 w-2 rounded-full ${who.signatureStatus === 'Signed' ? 'bg-emerald-500' : 'bg-slate-300'}"></span>${escapeHtml(who.signatureStatus || 'Not signed')}</p>
+        <p class="mt-2 text-sm text-slate-500">${escapeHtml(roles.join(', ') || 'User')}</p>
       </section>
     </div>`;
 }
@@ -1611,7 +1663,7 @@ function navButton(id, label, glyph, mobile) {
   }
   const ticketCount = (ws()?.tickets || []).filter((ticket) => ticket.status !== 'resolved' && (state.profile !== 'uploader' || ticket.ownerId === state.actorId)).length;
   const badge = id === 'review' ? waitingReviews().length : id === 'tickets' ? ticketCount : 0;
-  return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${on ? 'bg-brand text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
+  return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${on ? 'bg-[#6D28D9] text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
 }
 
 function personOptions(rows) {
@@ -1626,10 +1678,15 @@ function paintChrome() {
   document.getElementById('view-label').textContent = viewName;
   document.getElementById('view-label-mobile').textContent = viewName;
   const who = actor();
+  const named = who.name && who.name !== 'Unassigned' ? who.name : '';
   const sidePerson = document.getElementById('side-person');
-  if (sidePerson) sidePerson.textContent = who.name && who.name !== 'Unassigned' ? who.name : 'Evidence Register';
+  if (sidePerson) sidePerson.textContent = named || 'Evidence Register';
+  const sideMark = document.getElementById('side-mark');
+  if (sideMark) sideMark.textContent = named ? initials(named) : 'ER';
   document.getElementById('profile-note').textContent = who.title || who.role || PROFILE_NOTE[state.profile] || '';
-  document.getElementById('signed-name').textContent = who.name && who.name !== 'Unassigned' ? who.name : '';
+  document.getElementById('signed-name').textContent = named;
+  const headerRole = document.getElementById('header-role');
+  if (headerRole) headerRole.textContent = who.title || who.role || viewName;
   const headerDate = document.getElementById('header-date');
   if (headerDate) {
     headerDate.textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -2093,6 +2150,18 @@ pane.addEventListener('click', (event) => {
   if (event.target.id === 'evidence-back') {
     state.evidenceId = '';
     state.evidenceTab = 'overview';
+    state.showHash = false;
+    render();
+    return;
+  }
+  if (event.target.id === 'show-hash') {
+    state.showHash = !state.showHash;
+    render();
+    return;
+  }
+  const profileTab = event.target.closest('[data-profile-tab]');
+  if (profileTab) {
+    state.profileTab = profileTab.dataset.profileTab;
     render();
     return;
   }
