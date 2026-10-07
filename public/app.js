@@ -79,6 +79,7 @@ const state = {
   ackId: '',
   receiptId: '',
   reviewId: '',
+  adminTray: 'accepted',
   actorId: '',
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
@@ -807,6 +808,65 @@ function setupChecks(org) {
   return { items, missingOwner, missingReviewer, missingDept };
 }
 
+function evidenceTrayKind(item) {
+  const label = fileStatus(item)[0];
+  if (label === 'Accepted' || label === 'Met') return 'accepted';
+  if (label === 'Rejected' || label === 'Not met') return 'rejected';
+  return 'review';
+}
+
+function trayMark(kind) {
+  if (kind === 'accepted') {
+    return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#E7F6EE] text-[#15945A]" title="Accepted"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg></span>`;
+  }
+  if (kind === 'rejected') {
+    return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FDECEE] text-[#DC4A5C]" title="Rejected"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></span>`;
+  }
+  return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FFF4E5] text-[#CC8618]" title="Under review"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>`;
+}
+
+function evidenceTray() {
+  const kinds = [
+    ['accepted', 'Accepted'],
+    ['review', 'Under review'],
+    ['rejected', 'Rejected'],
+  ];
+  const files = ws().evidence || [];
+  const counts = Object.fromEntries(kinds.map(([id]) => [id, files.filter((item) => evidenceTrayKind(item) === id).length]));
+  const current = kinds.some(([id]) => id === state.adminTray) ? state.adminTray : 'accepted';
+  const rows = files.filter((item) => evidenceTrayKind(item) === current).map((item) => {
+    const control = controlById(item.controlIds?.[0]);
+    const kind = evidenceTrayKind(item);
+    const label = fileStatus(item)[0];
+    return `<tr class="border-t border-line">
+      <td class="px-4 py-3">${trayMark(kind)}</td>
+      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.name)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(item.id)}</span></td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(control ? `${control.id} · ${controlTitle(control)}` : 'Not linked')}</td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(person(item.uploadedBy).name)}</td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(control ? person(control.reviewerId).name : '—')}</td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(label)}</td>
+      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(when(item.uploadedAt))}</td>
+    </tr>`;
+  }).join('');
+  const tabs = kinds.map(([id, label]) => {
+    const on = id === current;
+    return `<button type="button" data-admin-tray="${id}" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${on ? 'bg-[#071E36] text-white' : 'border border-line bg-white text-slate-700'}">${trayMark(id)}<span>${label}</span><span class="${on ? 'text-white/80' : 'text-slate-400'}">${counts[id]}</span></button>`;
+  }).join('');
+  const empty = current === 'accepted' ? 'No document has been accepted yet.' : current === 'rejected' ? 'No document has been rejected.' : 'Nothing is waiting for a decision.';
+  return `
+    <section class="mt-5 rounded-xl border border-line bg-white p-5">
+      <h2 class="text-sm font-semibold">Evidence</h2>
+      <p class="mt-1 max-w-3xl text-sm text-slate-500">Every document stays on the register. Choose a category to see that set.</p>
+      <div class="mt-4 flex flex-wrap gap-2">${tabs}</div>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-2 font-medium"></th><th class="px-4 py-2 font-medium">Document</th><th class="px-4 py-2 font-medium">Requirement</th><th class="px-4 py-2 font-medium">Filed by</th><th class="px-4 py-2 font-medium">Reviewer</th><th class="px-4 py-2 font-medium">Status</th><th class="px-4 py-2 font-medium">Submitted</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="7" class="px-4 py-6 text-sm text-slate-500">${empty}</td></tr>`}</tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
 function renderAdminHome() {
   const org = ws().organisation;
   const departments = org.departments || [];
@@ -850,6 +910,7 @@ function renderAdminHome() {
       ${fact('Industry', org.industry || 'Not set')}
       ${fact('Created', shortDate(org.createdAt))}
     </div>
+    ${evidenceTray()}
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
       <h2 class="text-sm font-semibold">People</h2>
@@ -1328,8 +1389,7 @@ function renderUpload() {
   const receipt = (ws()?.evidence || []).find((item) => item.id === state.receiptId);
   const intro = `
     <h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1>
-    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Submit evidence for a requirement on this control set. The named reviewer is notified and makes the final decision.</p>
-    <p class="mt-4 max-w-2xl text-sm text-slate-500"><span class="font-medium text-ink">AI-assisted, human-controlled. </span>AI can analyse evidence, identify potential gaps and recommend actions. It does not make the final governance decision.</p>`;
+    <p class="mt-2 text-sm leading-relaxed text-slate-600">Submit evidence for a requirement on this control set. The named reviewer is notified and makes the final decision. AI-assisted, human-controlled. AI can analyse evidence, identify potential gaps and recommend actions. It does not make the final governance decision.</p>`;
   if (receipt) {
     pane.innerHTML = `${banner()}${submissionReceipt(receipt)}`;
     bindReceiptPad();
@@ -2491,6 +2551,12 @@ pane.addEventListener('click', (event) => {
     state.uploadControl = '';
     state.flash = '';
     state.error = '';
+    render();
+    return;
+  }
+  const tray = event.target.closest('[data-admin-tray]');
+  if (tray) {
+    state.adminTray = tray.dataset.adminTray;
     render();
     return;
   }
