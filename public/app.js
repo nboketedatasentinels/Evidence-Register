@@ -395,7 +395,6 @@ function evidenceSources() {
 }
 
 function uploadControlList() {
-  if (state.profile === 'uploader') return ownedControls();
   return ws()?.controls || [];
 }
 
@@ -407,7 +406,7 @@ function evidenceFields(controls = uploadControlList()) {
       <span class="mt-1 block text-xs font-normal text-slate-500">${source.connected ? 'Available now' : 'Record the place'}</span>
     </label>`).join('');
   const also = controls.length > 1
-    ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can sit against more than one requirement assigned here.</p><div class="mt-2 max-h-28 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml(controlTitle(control))}</span></label>`).join('')}</div></fieldset>`
+    ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-28 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml(controlTitle(control))}</span></label>`).join('')}</div></fieldset>`
     : '';
   return `
     <p class="mt-5 text-sm font-medium">Where does this evidence live?</p>
@@ -532,17 +531,8 @@ function myTickets() {
   return (ws().tickets || []).filter((ticket) => ticket.ownerId === state.actorId && ticket.status !== 'resolved');
 }
 
-function ownedControls() {
-  return (ws().controls || []).filter((control) => control.ownerId === state.actorId);
-}
-
 function controlTitle(control) {
   return control.expected || control.requirement || 'Requirement';
-}
-
-function noDutyCopy() {
-  if (!(ws().controls || []).length) return '';
-  return `<h2 class="text-base font-semibold">No evidence is currently required from you.</h2><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Your assigned controls will appear here once an administrator has configured the organisation's governance requirements and assigned responsibilities.</p>`;
 }
 
 function dutyCards(controls) {
@@ -550,7 +540,7 @@ function dutyCards(controls) {
     <article class="rounded-2xl border border-line bg-white p-5 shadow-sm">
       <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">Evidence required</p>
       <h2 class="mt-2 text-base font-semibold">${escapeHtml(control.id)} — ${escapeHtml(controlTitle(control))}</h2>
-      <p class="mt-2 text-sm text-slate-600">You are responsible for providing evidence for this control.</p>
+      <p class="mt-2 text-sm text-slate-600">Upload a document for this requirement. The named reviewer makes the final decision.</p>
       <button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="mt-4 rounded-lg bg-[#1860C8] px-3.5 py-2 text-sm font-medium text-white">Upload Evidence</button>
     </article>`).join('');
 }
@@ -622,7 +612,7 @@ function renderUploaderHome() {
     ${banner()}
     ${noteCards()}
     ${ackCards()}
-    ${ownedControls().length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Your responsibilities</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(ownedControls())}</div></section>` : (noDutyCopy() ? `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm">${noDutyCopy()}</section>` : '')}
+    ${all.length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(all)}</div></section>` : ''}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
