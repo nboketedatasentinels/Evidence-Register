@@ -1667,8 +1667,10 @@ function paintChrome() {
   const helloTitle = document.getElementById('hello-title');
   if (helloTitle) helloTitle.textContent = named ? greeting() : 'Evidence Register';
   const helloBand = document.getElementById('hello-band');
-  const onHome = state.profile === 'uploader' && state.page === 'dashboard';
+  const onHome = state.page === 'dashboard';
   if (helloBand) helloBand.hidden = !onHome;
+  const headerUpload = document.getElementById('header-upload');
+  if (headerUpload) headerUpload.hidden = state.profile !== 'uploader';
   pane.className = onHome
     ? 'flex-1 overflow-y-auto px-4 pb-6 pt-1 md:px-8'
     : 'flex-1 overflow-y-auto px-4 py-6 md:px-8';
