@@ -542,12 +542,19 @@ function renderUploaderHome() {
   const health = all.length ? Math.round((met / all.length) * 100) : 0;
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const thisWeek = files.filter((item) => new Date(item.uploadedAt).getTime() >= weekAgo).length;
+  const brief = (text) => {
+    const value = String(text || '').replace(/\s+/g, ' ').trim();
+    if (value.length <= 32) return value;
+    const cut = value.slice(0, 32);
+    const space = cut.lastIndexOf(' ');
+    return `${(space > 12 ? cut.slice(0, space) : cut).trimEnd()}...`;
+  };
   const activity = (ws().history || []).map((row) => `
     <li class="flex items-start gap-3 border-t border-line py-3">
       <span class="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#E4EAF1] text-[#5C6E82]">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
       </span>
-      <p class="min-w-0 flex-1 line-clamp-1 text-sm leading-snug" title="${escapeHtml(row.text)}">${escapeHtml(row.text)}</p>
+      <p class="min-w-0 flex-1 text-sm leading-snug" title="${escapeHtml(row.text)}">${escapeHtml(brief(row.text))}</p>
       <span class="shrink-0 text-xs text-slate-400">${escapeHtml(ago(row.at))}</span>
     </li>`).join('');
   const soon = shiftDay(day, 7);
@@ -582,11 +589,11 @@ function renderUploaderHome() {
     ${noteCards()}
     ${ackCards()}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#1E5EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#C17A12] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#D23A4C] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue} overdue</p></article>
-      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#15945A] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#15945A]" style="width:${health}%"></div></div></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#7B4EC9] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#CC8618] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5"/></svg></span><p class="mt-3 text-sm text-slate-500">Pending review</p><p class="mt-1 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">Requires action</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#DC4A5C] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/></svg></span><p class="mt-3 text-sm text-slate-500">Open tickets</p><p class="mt-1 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue} overdue</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#1AA368] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span><p class="mt-3 text-sm text-slate-500">Compliance health</p><p class="mt-1 text-3xl font-semibold tracking-tight">${health}%</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#1AA368]" style="width:${health}%"></div></div></article>
     </div>
     <div id="home-row" class="mt-4 grid gap-4 xl:grid-cols-3">
       <section class="rounded-2xl border border-line bg-white p-5 shadow-sm">
