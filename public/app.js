@@ -77,6 +77,7 @@ const state = {
   uploadStep: 1,
   editId: '',
   ackId: '',
+  receiptId: '',
   actorId: '',
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
@@ -422,9 +423,20 @@ function evidenceSources() {
   return ws()?.evidenceSources || [];
 }
 
+function assignedControls() {
+  return (ws()?.controls || []).filter((control) => control.ownerId === state.actorId);
+}
+
 function uploadControlList() {
+  if (state.profile === 'uploader') return assignedControls();
   return ws()?.controls || [];
 }
+
+function requirementLabel(control) {
+  return `${control.id} · ${controlTitle(control)}`;
+}
+
+const STORAGE_LINE = 'Your evidence remains in its approved storage location. Evidence Register records its source, version and fingerprint and only accesses it according to your organisation\'s configuration.';
 
 function localDay(date) {
   const y = date.getFullYear();
@@ -469,14 +481,14 @@ function evidenceFields(controls = uploadControlList()) {
     <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">${tiles}</div>
     <div data-source-file class="mt-4 rounded-xl border border-dashed border-line bg-mist px-4 py-4">
       <p class="text-sm font-medium">File from this computer</p>
-      <p class="mt-1 text-xs font-normal text-slate-500">The register keeps the name and a fingerprint. It does not keep a copy of the file.</p>
+      <p class="mt-1 text-xs font-normal text-slate-500">${STORAGE_LINE}</p>
       <input name="document" type="file" class="mt-3 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#1860C8]" />
     </div>
     <div data-source-place hidden class="mt-4">
       <label class="block text-sm font-medium">Link or folder path
         <input name="location" maxlength="300" placeholder="https://drive.google.com/… or a folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
       </label>
-      <p class="mt-1 text-xs font-normal text-slate-500">This place is named, not connected. The file stays where it is.</p>
+      <p class="mt-1 text-xs font-normal text-slate-500">Record the link or path. The file stays in that repository.</p>
     </div>
     <label class="mt-4 block text-sm font-medium">Requirement
       <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal outline-none">${controls.map(controlChoice).join('')}</select>
@@ -521,6 +533,20 @@ function syncAlso(form) {
   });
 }
 
+function nextVersion(controlId, name) {
+  const title = String(name || '').trim();
+  const version = (ws()?.evidence || [])
+    .filter((item) => title && item.name === title && (item.controlIds || []).includes(controlId))
+    .reduce((max, item) => Math.max(max, Number(item.version) || 0), 0) + 1;
+  return `${version}.0`;
+}
+
+function slashDate(iso) {
+  const [year, month, day] = String(iso || '').split('-');
+  if (!day) return '';
+  return `${day}/${month}/${year}`;
+}
+
 function syncRecorded(form) {
   if (!form) return;
   const control = controlById(form.elements.controlId?.value);
@@ -530,14 +556,24 @@ function syncRecorded(form) {
   const stamp = form.querySelector('[data-recorded-at]');
   if (stamp) stamp.textContent = clockText();
   const line = form.querySelector('[data-review-line]');
-  if (!line) return;
-  if (due) {
-    line.textContent = `Next review ${when(due)}, from ${control.frequency}.`;
-  } else if (control?.frequency) {
-    line.textContent = `Next review follows the requirement: ${control.frequency}.`;
-  } else {
-    line.textContent = 'Next review is set from the requirement.';
+  if (line) {
+    if (due) line.textContent = `Next review ${when(due)}, from ${control.frequency}.`;
+    else if (control?.frequency) line.textContent = `Next review follows the requirement: ${control.frequency}.`;
+    else line.textContent = 'Next review is set from the requirement.';
   }
+  const reviewDate = form.querySelector('[data-review-date]');
+  if (reviewDate) reviewDate.textContent = due ? slashDate(due) : (control?.frequency || 'Follows the requirement');
+  const sourceId = form.elements.sourceId?.value;
+  const sourceLabel = form.querySelector('[data-source-label]');
+  if (sourceLabel) sourceLabel.textContent = sourceId === 'computer' ? 'Uploaded file' : 'Approved repository';
+  const version = form.querySelector('[data-version]');
+  if (version) version.textContent = nextVersion(control?.id, form.elements.name?.value);
+  const owner = form.querySelector('[data-party-owner]');
+  const reviewer = form.querySelector('[data-party-reviewer]');
+  const chosen = form.querySelector('[data-party-control]');
+  if (owner) owner.textContent = control ? person(control.ownerId).name : '—';
+  if (reviewer) reviewer.textContent = control ? person(control.reviewerId).name : '—';
+  if (chosen) chosen.textContent = control ? requirementLabel(control) : 'Select a requirement';
 }
 
 function bindEvidenceForm(form) {
@@ -624,10 +660,6 @@ function dutyCards(controls) {
     </article>`).join('');
 }
 
-function dutyNote() {
-  return `<p class="mt-4 max-w-2xl text-sm text-slate-500"><span class="font-medium text-ink">AI-assisted, human-controlled. </span>AI can assess evidence and identify potential gaps, but it does not make the final governance decision.</p>`;
-}
-
 function renderUploaderHome() {
   const day = ws().today || new Date().toISOString().slice(0, 10);
   const all = ws().controls || [];
@@ -691,7 +723,7 @@ function renderUploaderHome() {
     ${banner()}
     ${noteCards()}
     ${all.some((control) => control.ownerId === state.actorId) ? `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm"><h2 class="text-sm font-semibold">Responsibilities</h2><p class="mt-1 max-w-2xl text-sm text-slate-500">Acknowledge a requirement only when you are the evidence owner. This does not approve the requirement or the evidence.</p>${responsibilityTable(all.filter((control) => control.ownerId === state.actorId), true)}</section>` : ''}
-    ${all.length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(all)}</div></section>` : ''}
+    ${assignedControls().length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Your assigned requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(assignedControls())}</div></section>` : ''}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E6ECC] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><p class="mt-3 text-sm text-slate-500">Evidence submitted</p><p class="mt-1 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">+${thisWeek} this week</p></article>
@@ -1106,7 +1138,8 @@ function renderControls() {
     const options = people().filter((row) => holds(row, 'reviewer')).map((row) => `<option value="${row.id}" ${row.id === control.reviewerId ? 'selected' : ''}>${escapeHtml(row.name)}</option>`).join('');
     return `<td class="px-5 py-3"><select data-assign-reviewer="${control.id}" class="rounded-lg border border-line bg-white px-2 py-1.5 text-sm">${options}</select></td>`;
   };
-  const rows = controls().map((control) => `
+  const listed = state.profile === 'uploader' ? controls().filter((control) => control.ownerId === state.actorId) : controls();
+  const rows = listed.map((control) => `
     <tr class="border-t border-line align-top">
       <td class="whitespace-nowrap px-5 py-3 text-sm font-medium">${escapeHtml(control.id)}</td>
       <td class="px-5 py-3 text-sm">${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
@@ -1114,11 +1147,11 @@ function renderControls() {
       ${reviewerCell(control)}
       <td class="px-5 py-3">${pill(control.agreed)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${control.evidenceIds.length ? control.evidenceIds.length : 'None'}</td>
-      ${state.profile === 'uploader' ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : ''}
+      ${state.profile === 'uploader' && control.ownerId === state.actorId ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : (state.profile === 'uploader' ? '<td class="px-5 py-3"></td>' : '')}
     </tr>`).join('');
   const framework = ws().organisation?.framework || 'ISO/IEC 42001';
   const intro = state.profile === 'uploader'
-    ? `These are the ${framework} requirements this organisation is keeping. Upload a document against one of them. A different person checks it.`
+    ? `These are the requirements assigned to you. Submit evidence against one of them. An authorised reviewer makes the final decision.`
     : 'These are the requirements this organisation is keeping. Add one from an ISO/IEC 42001 template, or write a custom requirement. A requirement with no file stays at no evidence.';
   pane.innerHTML = `
     ${banner()}
@@ -1134,7 +1167,7 @@ function renderControls() {
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
       <table class="w-full text-left">
         <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3 font-medium">Requirement</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Reviewer</th><th class="px-5 py-3 font-medium">Agreed</th><th class="px-5 py-3 font-medium">Files</th>${state.profile === 'uploader' ? '<th class="px-5 py-3"></th>' : ''}</tr></thead>
-        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 7 : 6}" class="px-5 py-8 text-sm text-slate-500">${(ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`}</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 7 : 6}" class="px-5 py-8 text-sm text-slate-500">${state.profile === 'uploader' ? 'No requirement is assigned to you yet.' : ((ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`)}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1155,30 +1188,143 @@ function renderTemplates() {
     <div class="mt-4 grid gap-3 lg:grid-cols-2">${cards}</div>`;
 }
 
+function whatNext() {
+  return `
+    <section class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <h2 class="text-sm font-semibold">What happens next?</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
+        <li>Evidence is fingerprinted and recorded.</li>
+        <li>AI assesses it against the selected requirements.</li>
+        <li>The authorised reviewer reviews the evidence and the AI assessment.</li>
+        <li>If a gap is identified, a remediation ticket can be created.</li>
+      </ol>
+    </section>`;
+}
+
+function submissionReceipt(item) {
+  const primary = controlById(item.controlIds?.[0]);
+  const reviewer = person(primary?.reviewerId).name;
+  const also = (item.controlIds || []).filter((id) => id !== primary?.id);
+  return `
+    <section class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">Evidence submitted</p>
+      <h2 class="mt-2 text-xl font-semibold tracking-tight">${escapeHtml(item.name)}</h2>
+      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div><dt class="text-slate-500">Requirement</dt><dd class="mt-1 font-medium">${escapeHtml(primary ? requirementLabel(primary) : item.controlIds?.[0] || '—')}</dd></div>
+        <div><dt class="text-slate-500">Also supports</dt><dd class="mt-1 font-medium">${escapeHtml(also.length ? also.join(', ') : 'None')}</dd></div>
+        <div><dt class="text-slate-500">Submitted by</dt><dd class="mt-1 font-medium">${escapeHtml(person(item.uploadedBy).name)}</dd></div>
+        <div><dt class="text-slate-500">Reviewer</dt><dd class="mt-1 font-medium">${escapeHtml(reviewer)}</dd></div>
+        <div><dt class="text-slate-500">Fingerprint</dt><dd class="mt-1 font-medium">${escapeHtml(hashLine(item.hash))}</dd></div>
+        <div><dt class="text-slate-500">Version</dt><dd class="mt-1 font-medium">${escapeHtml(String(item.version))}.0</dd></div>
+        <div><dt class="text-slate-500">Submitted</dt><dd class="mt-1 font-medium">${escapeHtml(whenTime(item.uploadedAt))}</dd></div>
+        <div><dt class="text-slate-500">Status</dt><dd class="mt-1"><span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Awaiting reviewer</span></dd></div>
+      </dl>
+      <div class="mt-5 rounded-xl border border-line bg-mist px-4 py-4">
+        <h3 class="text-sm font-semibold">AI assessment</h3>
+        <p class="mt-2 text-sm leading-relaxed text-slate-600">The assessment uses the document on record and can identify a gap. ${escapeHtml(reviewer)} reviews the evidence and the assessment, then makes the final decision.</p>
+      </div>
+      <button type="button" data-upload-reset class="mt-5 rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white">Submit another</button>
+    </section>`;
+}
+
+function userUploadFields(controls) {
+  const options = controls.map((control) => `<option value="${escapeHtml(control.id)}">${escapeHtml(requirementLabel(control))}</option>`).join('');
+  const also = controls.length > 1
+    ? `<fieldset class="mt-4"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can support more than one of your assigned requirements.</p><div class="mt-2 space-y-1.5">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(requirementLabel(control))}</span></label>`).join('')}</div></fieldset>`
+    : '';
+  return `
+    <section>
+      <h2 class="text-sm font-semibold">1. Select requirement</h2>
+      <label class="mt-3 block text-sm font-medium">Requirement
+        <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal outline-none">${options}</select>
+      </label>
+      <dl class="mt-3 grid gap-2 rounded-xl border border-line bg-mist px-4 py-3 text-sm sm:grid-cols-3">
+        <div><dt class="text-slate-500">Evidence owner</dt><dd class="mt-1 font-medium" data-party-owner></dd></div>
+        <div><dt class="text-slate-500">Reviewer</dt><dd class="mt-1 font-medium" data-party-reviewer></dd></div>
+        <div><dt class="text-slate-500">Control</dt><dd class="mt-1 font-medium" data-party-control></dd></div>
+      </dl>
+    </section>
+    <section class="mt-6">
+      <h2 class="text-sm font-semibold">2. Add evidence</h2>
+      <p class="mt-3 text-sm font-medium">Evidence source</p>
+      <div class="mt-2 grid gap-2 sm:grid-cols-2">
+        <label class="er-source cursor-pointer rounded-xl px-3 py-3">
+          <input type="radio" name="sourceId" value="computer" checked class="sr-only" />
+          <span class="block text-sm font-medium">Upload a file</span>
+          <span class="mt-1 block text-xs font-normal text-slate-500">From this computer</span>
+        </label>
+        <label class="er-source cursor-pointer rounded-xl px-3 py-3">
+          <input type="radio" name="sourceId" value="other" class="sr-only" />
+          <span class="block text-sm font-medium">Link to approved repository</span>
+          <span class="mt-1 block text-xs font-normal text-slate-500">Record where it already lives</span>
+        </label>
+      </div>
+      <p class="mt-3 text-xs leading-relaxed text-slate-500">${STORAGE_LINE}</p>
+      <div data-source-file class="mt-4 rounded-xl border border-dashed border-line bg-mist px-4 py-4">
+        <p class="text-sm font-medium">File</p>
+        <input name="document" type="file" class="mt-3 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-[#1860C8]" />
+      </div>
+      <div data-source-place hidden class="mt-4">
+        <label class="block text-sm font-medium">Link or path
+          <input name="location" maxlength="300" placeholder="https://… or a folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
+        </label>
+        <p class="mt-1 text-xs font-normal text-slate-500">Drive, SharePoint, OneDrive, and the other connectors are not switched on yet. Record the place. The file stays there.</p>
+      </div>
+      <label class="mt-4 block text-sm font-medium">Evidence title
+        <input name="name" required maxlength="160" placeholder="AI Policy" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
+      </label>
+      <label class="mt-4 block text-sm font-medium">What does this evidence demonstrate?
+        <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
+      </label>
+    </section>
+    ${also ? `<section class="mt-6"><h2 class="text-sm font-semibold">3. Link to other requirements</h2>${also}</section>` : ''}
+    <section class="mt-6">
+      <h2 class="text-sm font-semibold">${also ? '4' : '3'}. Evidence details</h2>
+      <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+        <div><dt class="text-slate-500">Review / expiry date</dt><dd class="mt-1 font-medium" data-review-date></dd></div>
+        <div><dt class="text-slate-500">Source</dt><dd class="mt-1 font-medium" data-source-label>Uploaded file</dd></div>
+        <div><dt class="text-slate-500">Version</dt><dd class="mt-1 font-medium" data-version>1.0</dd></div>
+      </dl>
+      <input type="hidden" name="reviewDue" value="" />
+    </section>
+    <section class="mt-6">
+      <h2 class="text-sm font-semibold">${also ? '5' : '4'}. Submit</h2>
+      <label class="mt-3 flex items-start gap-2 text-sm text-slate-700"><input type="checkbox" name="confirm" required class="mt-1" /> <span>By submitting this evidence, you confirm that this document is an appropriate organisational record for the selected requirement.</span></label>
+      <div class="mt-4 flex justify-end">
+        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-70">Submit Evidence for Review</button>
+      </div>
+    </section>`;
+}
+
 function renderUpload() {
-  const controls = ws()?.controls || [];
-  const intro = `<h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1><p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload a document for a requirement on this control set. An authorised reviewer makes the final decision.</p>`;
+  const controls = assignedControls();
+  const receipt = (ws()?.evidence || []).find((item) => item.id === state.receiptId);
+  const intro = `
+    <h1 class="text-2xl font-semibold tracking-tight">Upload Evidence</h1>
+    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Upload evidence for one of your assigned requirements. AI will assess the evidence, and an authorised reviewer makes the final decision.</p>
+    <p class="mt-4 max-w-2xl text-sm text-slate-500"><span class="font-medium text-ink">AI-assisted, human-controlled. </span>AI can analyse evidence, identify potential gaps and recommend actions. It does not make the final governance decision.</p>`;
+  if (receipt) {
+    pane.innerHTML = `${banner()}${intro}${submissionReceipt(receipt)}${whatNext()}`;
+    return;
+  }
   if (!controls.length) {
-    pane.innerHTML = `${banner()}${intro}${dutyNote()}`;
+    pane.innerHTML = `${banner()}${intro}<p class="mt-5 max-w-2xl text-sm text-slate-600">No requirement is assigned to you yet. An administrator names the evidence owner on each requirement.</p>`;
     return;
   }
   pane.innerHTML = `
     ${banner()}
     ${intro}
-    ${dutyNote()}
     <form id="user-upload-form" class="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6 shadow-sm">
-      <div id="user-upload-fields"></div>
-      <div class="mt-5 flex justify-end">
-        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-70">Upload evidence</button>
-      </div>
-    </form>`;
+      ${userUploadFields(controls)}
+    </form>
+    ${whatNext()}`;
   const form = document.getElementById('user-upload-form');
-  document.getElementById('user-upload-fields').innerHTML = evidenceFields(controls);
   bindEvidenceForm(form);
   const select = form.elements.controlId;
   if (select && state.uploadControl && controls.some((control) => control.id === state.uploadControl)) {
     select.value = state.uploadControl;
     syncAlso(form);
+    syncRecorded(form);
   }
 }
 
@@ -1341,7 +1487,7 @@ function renderEvidenceDetail(item) {
     const lines = (ws().history || []).filter((row) => ids.some((id) => String(row.text).includes(id)));
     body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${lines.map((row) => `<li class="border-t border-line py-3 text-sm first:border-t-0"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}<span class="mt-1 block text-xs text-slate-400">${escapeHtml(whenTime(row.at))}</span></li>`).join('') || '<li class="py-4 text-sm text-slate-500">No review history yet.</li>'}</ul></section>`;
   } else if (tab === 'attachments') {
-    body = `<section class="rounded-2xl border border-line bg-white p-5"><p class="text-sm font-medium">${escapeHtml(item.name)}</p><p class="mt-2 text-sm text-slate-600">${escapeHtml(item.location ? `${item.source} · ${item.location}` : (item.source || 'Recorded in the register'))}</p><p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(item.hash || 'No fingerprint')}</p><p class="mt-3 text-xs text-slate-500">The file itself is not stored. The register keeps the name, the place, and the fingerprint.</p></section>`;
+    body = `<section class="rounded-2xl border border-line bg-white p-5"><p class="text-sm font-medium">${escapeHtml(item.name)}</p><p class="mt-2 text-sm text-slate-600">${escapeHtml(item.location ? `${item.source} · ${item.location}` : (item.source || 'Recorded in the register'))}</p><p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(item.hash || 'No fingerprint')}</p><p class="mt-3 text-xs text-slate-500">${STORAGE_LINE}</p></section>`;
   } else if (tab === 'comments') {
     const notes = controls.map((control) => control.decision?.comment).filter(Boolean);
     body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${notes.map((note) => `<li class="border-t border-line py-3 text-sm first:border-t-0">${escapeHtml(note)}</li>`).join('') || '<li class="py-4 text-sm text-slate-500">No comments yet.</li>'}</ul></section>`;
@@ -2084,6 +2230,7 @@ function openEvidence(controlId) {
   if (state.profile === 'uploader') {
     state.page = 'upload';
     state.uploadControl = controlId || '';
+    state.receiptId = '';
     state.flash = '';
     state.error = '';
     render();
@@ -2118,7 +2265,7 @@ async function releaseBusy() {
   if (remain > 0) await new Promise((resolve) => setTimeout(resolve, remain));
 }
 
-async function post(url, body) {
+async function post(url, body, options = {}) {
   state.error = '';
   let response;
   try {
@@ -2149,11 +2296,16 @@ async function post(url, body) {
     return;
   }
   state.workspace = data.workspace;
-  state.flash = data.flash || '';
-  if (data.open?.page) state.page = data.open.page;
+  state.flash = options.stay ? '' : (data.flash || '');
+  if (!options.stay && data.open?.page) state.page = data.open.page;
+  if (options.stay && data.evidenceId) {
+    state.page = 'upload';
+    state.receiptId = data.evidenceId;
+  }
   if (data.open && Object.prototype.hasOwnProperty.call(data.open, 'ticketId')) state.ticketId = data.open.ticketId || '';
   await releaseBusy();
   render();
+  return data;
 }
 
 document.getElementById('side-nav').addEventListener('click', onNav);
@@ -2163,6 +2315,7 @@ function onNav(event) {
   const button = event.target.closest('[data-page]');
   if (!button) return;
   state.page = button.dataset.page;
+  if (state.page !== 'upload') state.receiptId = '';
   state.flash = '';
   state.error = '';
   render();
@@ -2178,6 +2331,13 @@ function drawingOn() {
 }
 
 pane.addEventListener('click', (event) => {
+  if (event.target.closest('[data-upload-reset]')) {
+    state.receiptId = '';
+    state.flash = '';
+    state.error = '';
+    render();
+    return;
+  }
   const ackOpen = event.target.closest('[data-ack-open]');
   if (ackOpen) {
     state.ackId = state.ackId === ackOpen.dataset.ackOpen ? '' : ackOpen.dataset.ackOpen;
@@ -2274,7 +2434,10 @@ pane.addEventListener('click', (event) => {
       state.evidenceId = go.dataset.evidenceOpen;
       state.evidenceTab = 'overview';
     }
-    if (go.dataset.go === 'upload') state.uploadStep = 1;
+    if (go.dataset.go === 'upload') {
+      state.uploadStep = 1;
+      state.receiptId = '';
+    }
     state.page = go.dataset.go;
     state.flash = '';
     render();
@@ -2486,14 +2649,18 @@ document.getElementById('evidence-form').addEventListener('submit', (event) => {
 document.addEventListener('change', (event) => {
   const form = event.target.form;
   if (!form || (form.id !== 'evidence-form' && form.id !== 'user-evidence-form' && form.id !== 'user-upload-form')) return;
-  if (event.target.name === 'sourceId') syncEvidenceSource(form);
-  if (event.target.name === 'controlId') {
+  if (event.target.name === 'sourceId') {
+    syncEvidenceSource(form);
+    syncRecorded(form);
+  }
+  if (event.target.name === 'controlId' || event.target.name === 'name' || event.target.name === 'location') {
     syncAlso(form);
     syncRecorded(form);
   }
   if (event.target.name === 'document' && event.target.files?.[0]) {
     const name = form.elements.name;
     if (name && !String(name.value || '').trim()) name.value = event.target.files[0].name;
+    syncRecorded(form);
   }
 });
 
@@ -2532,7 +2699,7 @@ function unlockEvidenceForm(form) {
   if (button) {
     button.disabled = false;
     button.removeAttribute('aria-busy');
-    button.textContent = 'Upload evidence';
+    button.textContent = form.id === 'user-upload-form' ? 'Submit Evidence for Review' : 'Upload evidence';
   }
   syncAlso(form);
 }
@@ -2552,9 +2719,18 @@ async function sendEvidence(form) {
     } else render();
     return;
   }
-  if (!armButton(button, 'Uploading…')) return;
-  await post('/api/loop/evidence', body);
-  if (form.id !== 'evidence-form') return;
+  if (!armButton(button, 'Submitting…')) return;
+  const data = await post('/api/loop/evidence', body, { stay: form.id === 'user-upload-form' });
+  if (form.id === 'user-upload-form') {
+    if (!state.error && data?.evidenceId) {
+      state.page = 'upload';
+      state.receiptId = data.evidenceId;
+      state.flash = '';
+      state.error = '';
+      render();
+    }
+    return;
+  }
   if (!state.error) {
     form.reset();
     document.getElementById('evidence-dialog').close();
@@ -2736,6 +2912,7 @@ document.addEventListener('click', (event) => {
 document.getElementById('header-upload')?.addEventListener('click', () => {
   state.page = 'upload';
   state.uploadControl = '';
+  state.receiptId = '';
   state.flash = '';
   state.error = '';
   render();
