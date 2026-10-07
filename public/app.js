@@ -76,6 +76,7 @@ const state = {
   evidencePage: 1,
   uploadStep: 1,
   editId: '',
+  ackId: '',
   actorId: '',
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
@@ -297,24 +298,52 @@ function accountPill(label) {
   return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cls}">${label}</span>`;
 }
 
-function ackCards() {
-  const rows = (ws().acknowledgements || []).filter((row) => row.personId === state.actorId && row.status === 'required');
-  if (!rows.length) return '';
-  const onFile = (ws().acknowledgements || []).some((row) => row.personId === state.actorId && row.status === 'signed');
-  return rows.map((row) => `
-    <form data-ack-form="${escapeHtml(row.id)}" class="mb-5 rounded-2xl border border-line bg-white p-6 shadow-sm">
-      <h2 class="text-lg font-semibold">Sign to acknowledge</h2>
-      <p class="mt-2 text-sm leading-relaxed text-slate-600">${escapeHtml(row.statement)}</p>
-      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <div><dt class="text-xs text-slate-500">Control</dt><dd class="font-medium">${escapeHtml(row.controlId)}</dd></div>
-        <div><dt class="text-xs text-slate-500">Your role</dt><dd class="font-medium">${escapeHtml(actor().title || actor().role || 'User')}</dd></div>
-      </dl>
-      <label class="mt-4 block text-sm font-medium">Signature
-        <input name="signature" required maxlength="80" value="${escapeHtml(actor().name)}" class="mt-1 w-full rounded-lg border border-line px-3 py-3 font-serif text-lg font-normal outline-none focus:border-[#1860C8]" />
-      </label>
-      <label class="mt-3 flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" required class="mt-1" /> <span>I confirm that I have reviewed and acknowledge this responsibility.</span></label>
-      <div class="mt-4 flex justify-end"><button type="submit" class="rounded-lg bg-[#1860C8] px-4 py-2 text-sm font-medium text-white">${onFile ? 'Confirm signature' : 'Sign & Confirm'}</button></div>
-    </form>`).join('');
+function ownerAck(control) {
+  const rows = (ws().acknowledgements || []).filter((row) => row.kind === 'responsibility' && row.controlId === control.id && row.personId === control.ownerId && row.status !== 'withdrawn');
+  return rows.find((row) => row.status === 'required') || rows.find((row) => row.status === 'signed') || null;
+}
+
+function ackConfirm(control, ack) {
+  return `
+    <form data-ack-form="${escapeHtml(ack.id)}" class="rounded-xl border border-line bg-mist p-4">
+      <p class="text-sm font-semibold">Responsibility assigned</p>
+      <p class="mt-1 text-sm leading-relaxed text-slate-600">You are the evidence owner for ${escapeHtml(control.id)}. Please review and acknowledge this responsibility.</p>
+      <p class="mt-2 text-xs text-slate-500">This confirms the responsibility. It does not approve the requirement or the evidence.</p>
+      <input type="hidden" name="signature" value="${escapeHtml(actor().name)}" />
+      <label class="mt-3 flex items-start gap-2 text-sm text-slate-700"><input type="checkbox" required class="mt-1" /> <span>I confirm that I have reviewed and acknowledge this responsibility.</span></label>
+      <div class="mt-3 flex justify-end"><button type="submit" class="rounded-lg bg-[#1860C8] px-3.5 py-2 text-sm font-medium text-white">Acknowledge responsibility</button></div>
+    </form>`;
+}
+
+function responsibilityTable(list, canAct) {
+  const rows = list.map((control) => {
+    const ack = ownerAck(control);
+    const pending = !ack || ack.status !== 'signed';
+    const mine = canAct && pending && ack && control.ownerId === state.actorId;
+    const mark = pending
+      ? '<span class="font-medium text-amber-800">Pending</span>'
+      : '<span class="font-medium text-emerald-800">Acknowledged</span>';
+    const action = mine
+      ? `<button type="button" data-ack-open="${escapeHtml(ack.id)}" class="ml-3 text-sm font-medium text-[#1860C8]">Acknowledge responsibility</button>`
+      : '';
+    const open = mine && state.ackId === ack.id;
+    return `
+      <tr class="border-t border-line align-top">
+        <td class="px-4 py-3 text-sm font-medium">${escapeHtml(control.id)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(control.expected || control.requirement || '')}</span></td>
+        <td class="px-4 py-3 text-sm">${escapeHtml(person(control.ownerId).name)}</td>
+        <td class="px-4 py-3 text-sm">${escapeHtml(person(control.reviewerId).name)}</td>
+        <td class="px-4 py-3 text-sm">${mark}${action}</td>
+      </tr>
+      ${open ? `<tr class="border-t border-line"><td colspan="4" class="px-4 py-3">${ackConfirm(control, ack)}</td></tr>` : ''}`;
+  }).join('');
+  if (!rows) return '';
+  return `
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-2 font-medium">Requirement</th><th class="px-4 py-2 font-medium">Evidence owner</th><th class="px-4 py-2 font-medium">Reviewer</th><th class="px-4 py-2 font-medium">Owner acknowledgement</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 function renderDashboard() {
@@ -356,7 +385,6 @@ function renderDashboard() {
   pane.innerHTML = `
     ${banner()}
     ${noteCards()}
-    ${ackCards()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation.framework)}</p>
@@ -398,6 +426,34 @@ function uploadControlList() {
   return ws()?.controls || [];
 }
 
+function localDay(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function frequencyInterval(frequency) {
+  const match = String(frequency || '').match(/every\s+(\d+)\s+(day|week|month|year)s?/i);
+  if (!match) return null;
+  return { count: Number(match[1]), unit: match[2].toLowerCase() };
+}
+
+function reviewDueFor(control, from = new Date()) {
+  const interval = frequencyInterval(control?.frequency);
+  if (!interval) return '';
+  const next = new Date(from);
+  if (interval.unit.startsWith('day')) next.setDate(next.getDate() + interval.count);
+  else if (interval.unit.startsWith('week')) next.setDate(next.getDate() + interval.count * 7);
+  else if (interval.unit.startsWith('month')) next.setMonth(next.getMonth() + interval.count);
+  else next.setFullYear(next.getFullYear() + interval.count);
+  return localDay(next);
+}
+
+function clockText(date = new Date()) {
+  return date.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function evidenceFields(controls = uploadControlList()) {
   const tiles = evidenceSources().map((source, index) => `
     <label class="er-source cursor-pointer rounded-xl px-3 py-3">
@@ -432,9 +488,12 @@ function evidenceFields(controls = uploadControlList()) {
     <label class="mt-4 block text-sm font-medium">What this document shows
       <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]"></textarea>
     </label>
-    <label class="mt-4 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
-      <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2.5 font-normal outline-none focus:border-[#1860C8]" />
-    </label>`;
+    <div class="mt-4 rounded-xl border border-line bg-mist px-4 py-3 text-sm">
+      <p class="font-medium">Date and time</p>
+      <p class="mt-1 font-normal text-slate-600">Recorded automatically when you upload. <span data-recorded-at>${escapeHtml(clockText())}</span></p>
+      <p class="mt-2 font-normal text-slate-600" data-review-line></p>
+      <input type="hidden" name="reviewDue" value="" />
+    </div>`;
 }
 
 function syncEvidenceSource(form) {
@@ -462,9 +521,29 @@ function syncAlso(form) {
   });
 }
 
+function syncRecorded(form) {
+  if (!form) return;
+  const control = controlById(form.elements.controlId?.value);
+  const due = reviewDueFor(control);
+  const hidden = form.elements.reviewDue;
+  if (hidden) hidden.value = due;
+  const stamp = form.querySelector('[data-recorded-at]');
+  if (stamp) stamp.textContent = clockText();
+  const line = form.querySelector('[data-review-line]');
+  if (!line) return;
+  if (due) {
+    line.textContent = `Next review ${when(due)}, from ${control.frequency}.`;
+  } else if (control?.frequency) {
+    line.textContent = `Next review follows the requirement: ${control.frequency}.`;
+  } else {
+    line.textContent = 'Next review is set from the requirement.';
+  }
+}
+
 function bindEvidenceForm(form) {
   syncEvidenceSource(form);
   syncAlso(form);
+  syncRecorded(form);
 }
 
 function sourceCatalogue() {
@@ -611,7 +690,7 @@ function renderUploaderHome() {
   pane.innerHTML = `
     ${banner()}
     ${noteCards()}
-    ${ackCards()}
+    ${all.some((control) => control.ownerId === state.actorId) ? `<section class="mb-5 rounded-2xl border border-line bg-white p-5 shadow-sm"><h2 class="text-sm font-semibold">Responsibilities</h2><p class="mt-1 max-w-2xl text-sm text-slate-500">Acknowledge a requirement only when you are the evidence owner. This does not approve the requirement or the evidence.</p>${responsibilityTable(all.filter((control) => control.ownerId === state.actorId), true)}</section>` : ''}
     ${all.length ? `<section class="mb-5"><h2 class="text-sm font-semibold">Requirements</h2><div class="mt-3 grid gap-3 lg:grid-cols-2">${dutyCards(all)}</div></section>` : ''}
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <article class="rounded-2xl border border-line bg-white p-4 shadow-sm"><span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#6E3EBE] text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2 2"/></svg></span><p class="mt-3 text-sm text-slate-500">Total controls</p><p class="mt-1 text-3xl font-semibold tracking-tight">${all.length}</p></article>
@@ -713,7 +792,7 @@ function renderAdminHome() {
     const manager = row.managerId ? person(row.managerId).name : 'Not set';
     const toggles = ['uploader', 'reviewer', 'admin'].map((role) => {
       const on = holds(row, role);
-      return `<button type="button" data-toggle-role="${role}" data-person="${row.id}" class="rounded-full px-2.5 py-1 text-xs font-medium ${on ? 'bg-navy text-white' : 'border border-line text-slate-500'}">${role}</button>`;
+      return `<button type="button" data-toggle-role="${role}" data-person="${row.id}" class="rounded-full px-2.5 py-1 text-xs font-medium ${on ? 'bg-navy text-white' : 'border border-line text-slate-500'}">${role === 'uploader' ? 'User' : role === 'reviewer' ? 'Reviewer' : 'Admin'}</button>`;
     }).join('');
     return `<tr class="border-t border-line align-top">
       <td class="px-4 py-3 text-sm font-medium">${escapeHtml(row.name)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(row.email || '')}</span></td>
@@ -725,13 +804,6 @@ function renderAdminHome() {
       <td class="px-4 py-3">${accountPill('Active')}</td>
     </tr>`;
   }).join('');
-  const dutyRows = controls().map((control) => `
-    <tr class="border-t border-line">
-      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(control.id)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(control.expected)}</span></td>
-      <td class="px-4 py-3 text-sm">${escapeHtml(person(control.ownerId).name)}</td>
-      <td class="px-4 py-3 text-sm">${escapeHtml(person(control.reviewerId).name)}</td>
-      <td class="px-4 py-3 text-sm">${escapeHtml(control.frequency)}</td>
-    </tr>`).join('');
   const warnings = [
     checks.missingDept.length ? `${checks.missingDept.length} ${checks.missingDept.length === 1 ? 'person has' : 'people have'} no department.` : '',
     checks.missingReviewer.length ? `${checks.missingReviewer.length} ${checks.missingReviewer.length === 1 ? 'requirement has' : 'requirements have'} no reviewer.` : '',
@@ -742,7 +814,6 @@ function renderAdminHome() {
   pane.innerHTML = `
     ${banner()}
     ${noteCards()}
-    ${ackCards()}
     <h1 class="text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
     <p class="mt-2 max-w-3xl text-sm text-slate-500">This page records who the organisation is, how it is structured, and who may own or review a requirement. People confirm their own name and email when they sign up. Saving this does not create evidence or tickets, and it does not approve a file.</p>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -830,8 +901,8 @@ function renderAdminHome() {
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
       <h2 class="text-sm font-semibold">Responsibilities</h2>
-      <p class="mt-1 max-w-3xl text-sm text-slate-500">Each requirement has an evidence owner and a reviewer. Naming an owner asks that person to acknowledge the responsibility. A signature is not collected just because someone joined.</p>
-      ${dutyRows ? `<div class="mt-4 overflow-x-auto"><table class="w-full text-left"><thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-2 font-medium">Requirement</th><th class="px-4 py-2 font-medium">Evidence owner</th><th class="px-4 py-2 font-medium">Reviewer</th><th class="px-4 py-2 font-medium">Review</th></tr></thead><tbody>${dutyRows}</tbody></table></div>` : '<p class="mt-4 text-sm text-slate-500">No requirement is on the control set yet. Add one from the inbuilt list, or write one in this organisation’s words, and name an owner and a reviewer.</p>'}
+      <p class="mt-1 max-w-3xl text-sm text-slate-500">Adding a requirement configures the control set. It does not approve the requirement, create evidence, or ask the admin to sign. The evidence owner acknowledges the responsibility. The reviewer decides the evidence later.</p>
+      ${controls().length ? responsibilityTable(controls(), false) : '<p class="mt-4 text-sm text-slate-500">No requirement is on the control set yet. Add one from the inbuilt list, or write one in this organisation’s words, and name an owner and a reviewer.</p>'}
       <button type="button" data-go="controls" class="mt-4 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-medium">Open controls</button>
     </section>
 
@@ -887,7 +958,8 @@ function directoryRows() {
 }
 
 function roleChips(row) {
-  return (row.roles || []).map((role) => `<span class="mr-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 capitalize">${escapeHtml(role)}</span>`).join('');
+  const label = { uploader: 'User', reviewer: 'Reviewer', admin: 'Admin' };
+  return (row.roles || []).map((role) => `<span class="mr-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5">${escapeHtml(label[role] || role)}</span>`).join('');
 }
 
 function penIcon() {
@@ -1124,7 +1196,8 @@ function fillUploadSummary(form) {
     ['Document', data.get('name') || 'Not named'],
     ['Requirement', control ? `${control.id} · ${control.requirement}` : 'Not chosen'],
     ['Also supports', also.length ? also.join(', ') : 'None'],
-    ['Review date', data.get('reviewDue') || 'Not set'],
+    ['Recorded', clockText()],
+    ['Next review', data.get('reviewDue') ? when(data.get('reviewDue')) : 'Follows the requirement'],
     ['What it shows', data.get('note') || ''],
   ];
   box.innerHTML = rows.map(([label, value]) => `<p class="mt-2 first:mt-0"><span class="text-slate-500">${escapeHtml(label)}. </span>${escapeHtml(value)}</p>`).join('');
@@ -1211,7 +1284,7 @@ function renderUserEvidence() {
       <td class="px-4 py-3 text-sm">${avatar(item.uploadedBy)}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(control ? person(control.reviewerId).name : '—')}</td>
       <td class="px-4 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span></td>
-      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(when(item.uploadedAt))}</td>
+      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(whenTime(item.uploadedAt))}</td>
       <td class="px-4 py-3 text-right"><button type="button" data-evidence="${escapeHtml(item.id)}" class="text-sm font-medium text-[#1860C8]">Open</button></td>
     </tr>`;
   }).join('');
@@ -1278,8 +1351,8 @@ function renderEvidenceDetail(item) {
       ['Control', primary ? `${primary.id} · ${primary.expected || primary.requirement}` : 'Not linked'],
       ['Uploader', person(item.uploadedBy).name],
       ['Reviewer', primary ? person(primary.reviewerId).name : 'Not set'],
-      ['Submitted', when(item.uploadedAt)],
-      ['Last updated', when(item.uploadedAt)],
+      ['Submitted', whenTime(item.uploadedAt)],
+      ['Last updated', whenTime(item.uploadedAt)],
     ];
     body = `<div class="grid gap-4 lg:grid-cols-[1fr_16rem]">
       <section class="rounded-2xl border border-line bg-white p-5"><dl class="grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl><p class="mt-4 text-sm leading-relaxed text-slate-600">${escapeHtml(item.note || '')}</p></section>
@@ -1591,7 +1664,7 @@ function renderPeople() {
   const active = people().map((row) => {
     const toggles = ['uploader', 'reviewer', 'admin'].map((role) => {
       const on = holds(row, role);
-      return `<button type="button" data-toggle-role="${role}" data-person="${row.id}" class="rounded-full px-2.5 py-1 text-xs font-medium ${on ? 'bg-navy text-white' : 'border border-line text-slate-500'}">${role}</button>`;
+      return `<button type="button" data-toggle-role="${role}" data-person="${row.id}" class="rounded-full px-2.5 py-1 text-xs font-medium ${on ? 'bg-navy text-white' : 'border border-line text-slate-500'}">${role === 'uploader' ? 'User' : role === 'reviewer' ? 'Reviewer' : 'Admin'}</button>`;
     }).join('');
     return `
       <tr class="border-t border-line align-top">
@@ -1607,7 +1680,7 @@ function renderPeople() {
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Admin</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">People</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">A person stays Pending until they create an account from their link. After they sign up, they are Active. Admin, user, and reviewer are permissions. The same person can hold more than one, and still cannot approve a file they uploaded.</p>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">A person stays Pending until they create an account from their link. After they sign up, they are Active. The admin assigns User, Reviewer, and Admin. The same person can hold more than one. A person who files evidence cannot approve that same file.</p>
       </div>
     </div>
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
@@ -1676,10 +1749,7 @@ function paintChrome() {
     : 'flex-1 overflow-y-auto px-4 py-6 md:px-8';
   const accountProfile = document.getElementById('account-profile');
   if (accountProfile) accountProfile.hidden = !navItems().some(([id]) => id === 'profile');
-  const headerDate = document.getElementById('header-date');
-  if (headerDate) {
-    headerDate.textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-  }
+  paintClock();
   document.getElementById('side-nav').innerHTML = navItems().map(([id, label, glyph]) => navButton(id, label, glyph, false)).join('');
   document.getElementById('mobile-nav').innerHTML = navItems().map(([id, label]) => navButton(id, label, '', true)).join('');
   const evidenceSelect = document.querySelector('#evidence-form select[name="controlId"]');
@@ -1697,6 +1767,17 @@ function paintChrome() {
   if (templateOwner && data) templateOwner.innerHTML = personOptions(data.people);
   if (templateReviewer && data) templateReviewer.innerHTML = personOptions(reviewers());
   paintNotes();
+}
+
+let clockTimer = 0;
+
+function paintClock() {
+  const headerDate = document.getElementById('header-date');
+  if (headerDate) headerDate.textContent = clockText();
+  document.querySelectorAll('[data-recorded-at]').forEach((node) => {
+    node.textContent = clockText();
+  });
+  if (!clockTimer) clockTimer = setInterval(paintClock, 30000);
 }
 
 function paintNotes() {
@@ -2097,6 +2178,12 @@ function drawingOn() {
 }
 
 pane.addEventListener('click', (event) => {
+  const ackOpen = event.target.closest('[data-ack-open]');
+  if (ackOpen) {
+    state.ackId = state.ackId === ackOpen.dataset.ackOpen ? '' : ackOpen.dataset.ackOpen;
+    render();
+    return;
+  }
   const draft = event.target.closest('[data-pen-draft]');
   if (draft) {
     const on = draft.dataset.penOn !== '1';
@@ -2400,7 +2487,10 @@ document.addEventListener('change', (event) => {
   const form = event.target.form;
   if (!form || (form.id !== 'evidence-form' && form.id !== 'user-evidence-form' && form.id !== 'user-upload-form')) return;
   if (event.target.name === 'sourceId') syncEvidenceSource(form);
-  if (event.target.name === 'controlId') syncAlso(form);
+  if (event.target.name === 'controlId') {
+    syncAlso(form);
+    syncRecorded(form);
+  }
   if (event.target.name === 'document' && event.target.files?.[0]) {
     const name = form.elements.name;
     if (name && !String(name.value || '').trim()) name.value = event.target.files[0].name;
