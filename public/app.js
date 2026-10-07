@@ -84,7 +84,7 @@ const state = {
   historyQuery: '',
   actorId: '',
   profile: pathProfile() || 'uploader',
-  authMode: 'signup',
+  authMode: 'signin',
   invite: null,
   resetToken: '',
   busyAt: 0,
@@ -2257,7 +2257,9 @@ function showAuth(message) {
       : 'Back to sign in';
   document.getElementById('signup-submit').textContent = 'Create account';
   document.getElementById('password-label').textContent = 'Password';
-  document.getElementById('confirm-field').hidden = true;
+  document.getElementById('confirm-field').hidden = state.authMode !== 'signup';
+  const confirm = document.querySelector('#confirm-field input');
+  if (confirm) confirm.required = state.authMode === 'signup';
   const signup = document.getElementById('signup-form');
   signup.elements.email.readOnly = false;
   ['name-field', 'email-field', 'job-field', 'unit-field'].forEach((id) => {
@@ -2374,6 +2376,16 @@ function playAuthEnter() {
   panel.classList.add('auth-enter');
 }
 
+let dashMotion = 0;
+
+function moveBlobs(blue, purple, started, now) {
+  const t = (now - started) / 1000;
+  blue.style.transform = `translate3d(${Math.sin(t * 0.45) * 26}px, ${Math.cos(t * 0.32) * 18}px, 0)`;
+  purple.style.transform = `translate3d(${Math.cos(t * 0.36) * 22}px, ${Math.sin(t * 0.28) * 20}px, 0)`;
+  blue.style.opacity = String(0.62 + Math.sin(t * 0.5) * 0.16);
+  purple.style.opacity = String(0.58 + Math.cos(t * 0.42) * 0.16);
+}
+
 function startAuthMotion() {
   if (authMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const auth = document.getElementById('auth');
@@ -2386,20 +2398,35 @@ function startAuthMotion() {
       authMotion = 0;
       return;
     }
-    const t = (now - started) / 1000;
-    blue.style.transform = `translate3d(${Math.sin(t * 0.45) * 26}px, ${Math.cos(t * 0.32) * 18}px, 0)`;
-    purple.style.transform = `translate3d(${Math.cos(t * 0.36) * 22}px, ${Math.sin(t * 0.28) * 20}px, 0)`;
-    blue.style.opacity = String(0.62 + Math.sin(t * 0.5) * 0.16);
-    purple.style.opacity = String(0.58 + Math.cos(t * 0.42) * 0.16);
+    moveBlobs(blue, purple, started, now);
     authMotion = requestAnimationFrame(frame);
   }
   authMotion = requestAnimationFrame(frame);
+}
+
+function startDashMotion() {
+  if (dashMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const shell = document.getElementById('shell');
+  const blue = document.getElementById('dash-blob-blue');
+  const purple = document.getElementById('dash-blob-purple');
+  if (!shell || !blue || !purple) return;
+  const started = performance.now();
+  function frame(now) {
+    if (shell.classList.contains('hidden')) {
+      dashMotion = 0;
+      return;
+    }
+    moveBlobs(blue, purple, started, now);
+    dashMotion = requestAnimationFrame(frame);
+  }
+  dashMotion = requestAnimationFrame(frame);
 }
 
 function showApp() {
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('auth').classList.add('hidden');
   document.getElementById('shell').classList.remove('hidden');
+  startDashMotion();
   render();
 }
 
@@ -3224,7 +3251,7 @@ async function authenticate(url, form) {
     return;
   }
   const data = new FormData(form);
-  const confirming = url.endsWith('/reset') || (url.endsWith('/signup') && state.invite);
+  const confirming = url.endsWith('/reset') || url.endsWith('/signup');
   if (confirming && data.get('password') !== data.get('confirm')) {
     showAuth('The two passwords do not match.');
     return;
