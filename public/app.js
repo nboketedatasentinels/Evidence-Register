@@ -72,6 +72,7 @@ const state = {
   authMode: 'signup',
   invite: null,
   resetToken: '',
+  busyAt: 0,
 };
 
 const pane = document.getElementById('pane');
@@ -1368,16 +1369,30 @@ async function load() {
   showApp();
 }
 
-function busyLabel(text) {
-  return `<span class="inline-flex items-center gap-2"><svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"></circle><path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>${text}</span>`;
-}
-
 function armButton(button, text) {
   if (!button || button.disabled) return false;
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  button.innerHTML = busyLabel(text);
+  button.innerHTML = `<span class="er-spin" aria-hidden="true"></span>${text}`;
+  const form = button.closest('form');
+  if (form && !form.querySelector('.er-hold')) {
+    form.querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = true; });
+    const note = document.createElement('p');
+    note.className = 'er-hold';
+    note.setAttribute('role', 'status');
+    note.innerHTML = `<span class="er-spin" aria-hidden="true"></span><span>${text}</span>`;
+    form.appendChild(note);
+  }
+  state.busyAt = performance.now();
   return true;
+}
+
+async function releaseBusy() {
+  const started = state.busyAt;
+  state.busyAt = 0;
+  if (!started) return;
+  const remain = 900 - (performance.now() - started);
+  if (remain > 0) await new Promise((resolve) => setTimeout(resolve, remain));
 }
 
 async function post(url, body) {
@@ -1392,18 +1407,21 @@ async function post(url, body) {
   } catch {
     state.error = 'That did not save. Check the connection and try again.';
     state.flash = '';
+    await releaseBusy();
     render();
     return;
   }
   const data = await response.json().catch(() => ({}));
   if (response.status === 401) {
     sessionStorage.removeItem(sessionKey());
+    await releaseBusy();
     showAuth(data.error || 'Sign in to continue.');
     return;
   }
   if (!response.ok) {
     state.error = data.error || 'That did not save.';
     state.flash = '';
+    await releaseBusy();
     render();
     return;
   }
@@ -1411,6 +1429,7 @@ async function post(url, body) {
   state.flash = data.flash || '';
   if (data.open?.page) state.page = data.open.page;
   if (data.open && Object.prototype.hasOwnProperty.call(data.open, 'ticketId')) state.ticketId = data.open.ticketId || '';
+  await releaseBusy();
   render();
 }
 
@@ -1615,9 +1634,9 @@ pane.addEventListener('submit', (event) => {
   }
   if (event.target.id === 'invite-form') {
     event.preventDefault();
+    const data = new FormData(event.target);
     const button = event.target.querySelector('[type="submit"]');
     if (!armButton(button, 'Adding…')) return;
-    const data = new FormData(event.target);
     post('/api/loop/invite', {
       name: data.get('name'),
       email: data.get('email'),

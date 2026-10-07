@@ -35,6 +35,31 @@
       @media (prefers-reduced-motion: reduce) {
         #auth-panel.auth-enter { animation: none; }
       }
+      .er-spin {
+        width: 16px;
+        height: 16px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        flex: none;
+        margin-right: 8px;
+        vertical-align: -3px;
+        animation: er-spin 0.7s linear infinite;
+      }
+      .er-hold {
+        display: flex;
+        align-items: center;
+        margin-top: 12px;
+        color: #1860C8;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .er-hold .er-spin { margin-right: 8px; }
+      @keyframes er-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .er-spin { animation: none; }
+      }
     </style>
   </head>
   <body class="h-screen overflow-hidden bg-mist font-sans text-ink antialiased">
@@ -313,6 +338,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=36"></script>
+    <script src="/app.js?v=37"></script>
   </body>
 </html>
