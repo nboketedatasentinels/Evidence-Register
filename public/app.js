@@ -1474,19 +1474,24 @@ function showUploadStep(step) {
 
 function fileStatus(item) {
   if (item.rejected) return ['Rejected', 'bg-rose-50 text-rose-700'];
-  const control = controlById(item.controlIds[0]);
-  if (control?.decision?.review === 'confirmed' && control.agreed === 'MET') return ['Approved', 'bg-emerald-50 text-emerald-700'];
-  if (!item.hasReview || control?.decision?.review === 'awaiting') return ['Under review', 'bg-amber-50 text-amber-800'];
-  if (control?.agreed === 'NOT MET') return ['Rejected', 'bg-rose-50 text-rose-700'];
-  return ['Pending', 'bg-slate-100 text-slate-600'];
+  const control = controlById(item.controlIds?.[0]);
+  const review = control?.decision?.review;
+  if (review === 'requested') return ['More evidence requested', 'bg-amber-50 text-amber-800'];
+  if (review === 'confirmed' || review === 'overridden') {
+    const agreed = control.decision?.reviewedStatus || control.agreed;
+    if (agreed === 'MET') return ['Met', 'bg-emerald-50 text-emerald-800'];
+    if (agreed === 'PARTIAL') return ['Partially met', 'bg-amber-50 text-amber-900'];
+    if (agreed === 'NOT MET') return ['Not met', 'bg-rose-50 text-rose-800'];
+    if (agreed === 'NO EVIDENCE') return ['No evidence', 'bg-slate-100 text-slate-600'];
+  }
+  return ['Under review', 'bg-amber-50 text-amber-800'];
 }
 
 function userEvidenceList() {
-  const wanted = { approved: 'Approved', review: 'Under review', rejected: 'Rejected', pending: 'Pending' }[state.evidenceStatus];
   return evidenceRows().filter((item) => {
     if (state.evidenceOwner !== 'all' && item.uploadedBy !== state.evidenceOwner) return false;
     if (state.evidenceControl !== 'all' && !item.controlIds.includes(state.evidenceControl)) return false;
-    if (wanted && fileStatus(item)[0] !== wanted) return false;
+    if (state.evidenceStatus !== 'all' && fileStatus(item)[0] !== state.evidenceStatus) return false;
     return true;
   });
 }
@@ -1531,7 +1536,7 @@ function renderUserEvidence() {
     </div>
     <div class="mt-5 flex flex-wrap gap-2">
       <select data-evidence-filter="evidenceControl" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All controls</option>${(ws().controls || []).map((control) => `<option value="${escapeHtml(control.id)}" ${state.evidenceControl === control.id ? 'selected' : ''}>${escapeHtml(control.id)}</option>`).join('')}</select>
-      <select data-evidence-filter="evidenceStatus" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All statuses</option><option value="approved" ${state.evidenceStatus === 'approved' ? 'selected' : ''}>Approved</option><option value="review" ${state.evidenceStatus === 'review' ? 'selected' : ''}>Under review</option><option value="rejected" ${state.evidenceStatus === 'rejected' ? 'selected' : ''}>Rejected</option><option value="pending" ${state.evidenceStatus === 'pending' ? 'selected' : ''}>Pending</option></select>
+      <select data-evidence-filter="evidenceStatus" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All statuses</option>${['Under review', 'Partially met', 'Met', 'Not met', 'More evidence requested', 'Rejected'].map((label) => `<option value="${escapeHtml(label)}" ${state.evidenceStatus === label ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>
       <select data-evidence-filter="evidenceOwner" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All owners</option>${owners.map(([id, name]) => `<option value="${escapeHtml(id)}" ${state.evidenceOwner === id ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
     </div>
     <div class="mt-4 overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
