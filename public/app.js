@@ -758,7 +758,6 @@ function renderAdminHome() {
     <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Admin · ${escapeHtml(org.id || 'ORG-001')}</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
     <p class="mt-2 max-w-3xl text-sm text-slate-500">This page records who the organisation is, how it is structured, and who may own or review a requirement. People confirm their own name and email when they sign up. Saving this does not create evidence or tickets, and it does not approve a file.</p>
-    ${sourceCatalogue()}
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       ${fact('Framework', org.framework || 'ISO/IEC 42001')}
       ${fact('Country', org.country || 'Not set')}
