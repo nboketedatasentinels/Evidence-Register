@@ -1070,7 +1070,7 @@ function renderOrganisation() {
   const rows = people().map((row) => `
     <tr class="border-t border-line">
       <td class="px-5 py-3">${avatar(row.id)}</td>
-      <td class="px-5 py-3 text-sm">${escapeHtml(row.role)}${row.ageRange ? `<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(row.ageRange)}</span>` : ''}</td>
+      <td class="px-5 py-3 text-sm">${escapeHtml(row.role)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${escapeHtml(row.unit)}</td>
       <td class="px-5 py-3 text-sm">${roleChips(row)}</td>
       <td class="px-5 py-3">${accountPill('Active')}</td>
@@ -1098,7 +1098,7 @@ function renderOrganisation() {
       </div>
     </div>
     <h2 class="mb-1 mt-6 text-sm font-semibold">Add people</h2>
-    <p class="mb-4 max-w-3xl text-sm text-slate-500">Upload an Excel file, or enter them manually. The file needs full name, email, role, and age range. Role is User or Reviewer. Age range is 18–24, 25–34, 35–44, 45–54, 55–64, or 65+. Adding someone sends them an email with the link to join. The blue pen at the top turns on a drawing when they open that link.</p>
+    <p class="mb-4 max-w-3xl text-sm text-slate-500">Upload an Excel file, or enter them manually. The file needs full name, email, and role. Role is User or Reviewer. Adding someone sends them an email with the link to join. The blue pen at the top turns on a drawing when they open that link.</p>
     <div class="grid gap-4 lg:grid-cols-2">
       <form id="excel-form" class="rounded-xl border border-line bg-white p-5">
         <h3 class="text-sm font-semibold">Upload Excel</h3>
@@ -1120,10 +1120,7 @@ function renderOrganisation() {
           <label class="text-sm font-medium">Role
             <select name="profile" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal"><option value="uploader">User</option><option value="reviewer">Reviewer</option></select>
           </label>
-          <label class="text-sm font-medium">Age range
-            <select name="ageRange" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal"><option value="">Choose</option>${['18–24', '25–34', '35–44', '45–54', '55–64', '65+'].map((age) => `<option value="${age}">${age}</option>`).join('')}</select>
-          </label>
-          <label class="text-sm font-medium sm:col-span-2">Department
+          <label class="text-sm font-medium">Department
             <input name="unit" maxlength="80" placeholder="Optional" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
           </label>
         </div>
@@ -1137,7 +1134,7 @@ function renderOrganisation() {
       return `<li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <p class="text-sm font-medium">${escapeHtml(row.name || row.email)} <span class="ml-2 align-middle">${accountPill('Pending')}</span></p>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(row.email)} · ${roleName}${row.ageRange ? ` · ${escapeHtml(row.ageRange)}` : ''}</p>
+          <p class="mt-1 text-xs text-slate-500">${escapeHtml(row.email)} · ${roleName}</p>
           <p class="mt-1 text-xs text-slate-500">${escapeHtml(link)}</p>
         </div>
         <div class="flex items-center gap-2">
