@@ -81,6 +81,7 @@ const state = {
   reviewId: '',
   adminTray: 'accepted',
   historyCategory: 'all',
+  historyQuery: '',
   actorId: '',
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
@@ -2007,23 +2008,32 @@ function historyCategory(text) {
   return 'Organisation';
 }
 
+function historyTableBody() {
+  const all = ws().history || [];
+  const chosen = state.historyCategory;
+  const query = state.historyQuery.trim().toLowerCase();
+  const rows = all.filter((row) => {
+    if (chosen !== 'all' && historyCategory(row.text) !== chosen) return false;
+    if (!matches(`${row.text} ${person(row.actorId).name} ${historyCategory(row.text)}`)) return false;
+    if (!query) return true;
+    const blob = `${whenTime(row.at)} ${person(row.actorId).name} ${historyCategory(row.text)} ${row.text}`.toLowerCase();
+    return blob.includes(query);
+  });
+  return rows.map((row) => `
+    <tr class="border-t border-line align-top">
+      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(whenTime(row.at))}</td>
+      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(person(row.actorId).name)}</td>
+      <td class="whitespace-nowrap px-4 py-3 text-sm">${escapeHtml(historyCategory(row.text))}</td>
+      <td class="px-4 py-3 text-sm leading-relaxed">${escapeHtml(row.text)}</td>
+    </tr>`).join('') || `<tr><td colspan="4" class="px-4 py-8 text-sm text-slate-500">${all.length ? 'Nothing matches.' : 'Nothing has been recorded yet.'}</td></tr>`;
+}
+
 function renderHistory() {
   const categories = ['Evidence', 'Decisions', 'Tickets', 'Responsibilities', 'People', 'Organisation'];
   const all = ws().history || [];
   const counts = Object.fromEntries(categories.map((name) => [name, all.filter((row) => historyCategory(row.text) === name).length]));
   const chosen = state.historyCategory !== 'all' && counts[state.historyCategory] ? state.historyCategory : 'all';
   state.historyCategory = chosen;
-  const rows = all.filter((row) => {
-    if (chosen !== 'all' && historyCategory(row.text) !== chosen) return false;
-    return matches(`${row.text} ${person(row.actorId).name} ${historyCategory(row.text)}`);
-  });
-  const body = rows.map((row) => `
-    <tr class="border-t border-line align-top">
-      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(whenTime(row.at))}</td>
-      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(person(row.actorId).name)}</td>
-      <td class="whitespace-nowrap px-4 py-3 text-sm">${escapeHtml(historyCategory(row.text))}</td>
-      <td class="px-4 py-3 text-sm leading-relaxed">${escapeHtml(row.text)}</td>
-    </tr>`).join('');
   const options = ['all', ...categories.filter((name) => counts[name])].map((name) => {
     const label = name === 'all' ? 'All categories' : `${name} (${counts[name]})`;
     return `<option value="${escapeHtml(name)}" ${chosen === name ? 'selected' : ''}>${escapeHtml(label)}</option>`;
@@ -2035,12 +2045,15 @@ function renderHistory() {
         <h1 class="text-2xl font-semibold tracking-tight">History</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-500">Each line is added. Nothing on this page rewrites an earlier line.</p>
       </div>
-      <select data-history-category class="rounded-lg border border-line bg-white px-3 py-2 text-sm">${options}</select>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="history-q" type="search" value="${escapeHtml(state.historyQuery)}" placeholder="Search history" class="w-64 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-[#1860C8]" />
+        <select data-history-category class="rounded-lg border border-line bg-white px-3 py-2 text-sm">${options}</select>
+      </div>
     </div>
     <div class="mt-5 overflow-x-auto rounded-xl border border-line bg-white">
       <table class="w-full text-left">
         <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-medium">When</th><th class="px-4 py-3 font-medium">Person</th><th class="px-4 py-3 font-medium">Category</th><th class="px-4 py-3 font-medium">Record</th></tr></thead>
-        <tbody>${body || `<tr><td colspan="4" class="px-4 py-8 text-sm text-slate-500">${all.length ? 'Nothing matches.' : 'Nothing has been recorded yet.'}</td></tr>`}</tbody>
+        <tbody id="history-body">${historyTableBody()}</tbody>
       </table>
     </div>`;
 }
@@ -2892,6 +2905,13 @@ pane.addEventListener('submit', (event) => {
     reader.readAsDataURL(file);
     return;
   }
+});
+
+pane.addEventListener('input', (event) => {
+  if (event.target.id !== 'history-q') return;
+  state.historyQuery = event.target.value;
+  const body = document.getElementById('history-body');
+  if (body) body.innerHTML = historyTableBody();
 });
 
 pane.addEventListener('change', (event) => {
