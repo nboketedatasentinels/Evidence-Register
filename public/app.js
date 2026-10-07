@@ -78,6 +78,7 @@ const state = {
   editId: '',
   ackId: '',
   receiptId: '',
+  reviewId: '',
   actorId: '',
   profile: pathProfile() || 'uploader',
   authMode: 'signup',
@@ -1014,7 +1015,7 @@ function renderOrganisation() {
       <td class="px-5 py-3"><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${signatureClass(row.signatureStatus)}">${escapeHtml(row.signatureStatus || 'Not signed')}</span>${row.drawnSignature ? `<img alt="Drawn signature" src="${escapeHtml(row.drawnSignature)}" class="mt-2 h-8 bg-white" />` : ''}</td>
     </tr>`).join('');
   const invites = (ws().invitations || []).filter((row) => row.status === 'pending');
-  const acks = (ws().acknowledgements || []).filter((row) => row.status === 'required' || row.status === 'signed');
+  const acks = (ws().acknowledgements || []).filter((row) => row.kind !== 'submission' && (row.status === 'required' || row.status === 'signed'));
   const ackRows = acks.map((row) => `
     <tr class="border-t border-line align-top">
       <td class="px-5 py-3 text-sm font-medium">${escapeHtml(person(row.personId).name)}</td>
@@ -1196,14 +1197,33 @@ function whatNext() {
     </section>`;
 }
 
+function submissionAck(item) {
+  return (ws()?.acknowledgements || []).find((row) => row.kind === 'submission' && String(row.statement || '').startsWith(`evidence:${item.id}`));
+}
+
 function submissionReceipt(item) {
   const primary = controlById(item.controlIds?.[0]);
   const names = [...new Set((item.controlIds || []).map((id) => controlById(id)?.reviewerId).filter(Boolean))].map((id) => person(id).name);
   const reviewer = names[0] || 'The reviewer';
-  const notified = names.length > 1
-    ? `${names.join(' and ')} have been notified. They will review this evidence and make the final decision.`
-    : `${reviewer} has been notified. They will review this evidence and make the final decision.`;
+  const ack = submissionAck(item);
+  const signed = ack ? ack.status === 'signed' : true;
   const also = (item.controlIds || []).filter((id) => id !== primary?.id);
+  const headline = signed
+    ? (names.length > 1
+      ? `${names.join(' and ')} have been notified. They will review this evidence and make the final decision.`
+      : `${reviewer} has been notified. They will review this evidence and make the final decision.`)
+    : `Draw your signature to send this to ${reviewer}. They receive it when you sign.`;
+  const footer = signed
+    ? `<div class="flex items-center justify-between gap-3 border-t border-line px-6 py-4">${ack?.signature?.startsWith('data:image') ? `<img src="${escapeHtml(ack.signature)}" alt="Signature" class="h-12 bg-white" />` : '<span></span>'}<button type="button" data-upload-reset class="text-sm font-medium text-[#1860C8]">Submit another</button></div>`
+    : `<form id="receipt-sign-form" class="border-t border-line px-6 py-4">
+        <p class="text-sm font-medium">Signature</p>
+        <p class="mt-1 text-xs text-slate-500">This sends the evidence to ${escapeHtml(reviewer)}. It does not approve it.</p>
+        <canvas id="receipt-pad" width="640" height="140" class="mt-3 w-full touch-none rounded-lg border border-line bg-white"></canvas>
+        <div class="mt-3 flex items-center justify-between">
+          <button type="button" id="receipt-clear" class="text-sm font-medium text-slate-500">Clear</button>
+          <button type="submit" class="rounded-lg bg-[#071E36] px-4 py-2.5 text-sm font-medium text-white">Sign and send</button>
+        </div>
+      </form>`;
   return `
     <section class="mt-6 max-w-3xl overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
       <div class="flex items-start gap-4 border-b border-[#D5E4FA] bg-[#F4F8FE] px-6 py-5">
@@ -1211,9 +1231,9 @@ function submissionReceipt(item) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg>
         </span>
         <div>
-          <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">Evidence submitted</p>
+          <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">${signed ? 'Evidence submitted' : 'Sign to send'}</p>
           <h2 class="mt-1 text-xl font-semibold tracking-tight">${escapeHtml(item.name)}</h2>
-          <p class="mt-2 text-sm leading-relaxed text-[#163A66]">${escapeHtml(notified)} The notification is in their Evidence Register queue.</p>
+          <p class="mt-2 text-sm leading-relaxed text-[#163A66]">${escapeHtml(headline)}${signed ? ' The notification is in their Evidence Register queue.' : ''}</p>
         </div>
       </div>
       <dl class="grid gap-4 px-6 py-5 text-sm sm:grid-cols-2">
@@ -1224,19 +1244,17 @@ function submissionReceipt(item) {
         <div><dt class="text-slate-500">Fingerprint</dt><dd class="mt-1 font-medium">${escapeHtml(hashLine(item.hash))}</dd></div>
         <div><dt class="text-slate-500">Version</dt><dd class="mt-1 font-medium">${escapeHtml(String(item.version))}.0</dd></div>
         <div><dt class="text-slate-500">Submitted</dt><dd class="mt-1 font-medium">${escapeHtml(whenTime(item.uploadedAt))}</dd></div>
-        <div><dt class="text-slate-500">Status</dt><dd class="mt-1"><span class="inline-flex rounded-full bg-[#E7EEF8] px-2.5 py-0.5 text-xs font-medium text-[#1860C8]">Awaiting review</span></dd></div>
+        <div><dt class="text-slate-500">Status</dt><dd class="mt-1"><span class="inline-flex rounded-full bg-[#E7EEF8] px-2.5 py-0.5 text-xs font-medium text-[#1860C8]">${signed ? 'Awaiting review' : 'Awaiting signature'}</span></dd></div>
       </dl>
       <div class="mx-6 mb-6 rounded-xl border border-line bg-mist px-4 py-4">
         <h3 class="text-sm font-semibold">What happens next</h3>
         <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-slate-600">
-          <li>The evidence is on record, with its fingerprint and version.</li>
-          <li>${escapeHtml(reviewer)} reviews the evidence and the assessment.</li>
-          <li>${escapeHtml(reviewer)} makes the final decision.</li>
+          ${signed
+            ? `<li>The evidence is on record, with its fingerprint and version.</li><li>${escapeHtml(reviewer)} reviews the evidence and the assessment.</li><li>${escapeHtml(reviewer)} makes the final decision.</li>`
+            : `<li>Draw your signature below.</li><li>${escapeHtml(reviewer)} is notified in Evidence Register.</li><li>${escapeHtml(reviewer)} reviews the evidence and makes the final decision.</li>`}
         </ol>
       </div>
-      <div class="flex justify-end border-t border-line px-6 py-4">
-        <button type="button" data-upload-reset class="rounded-lg bg-[#1860C8] px-4 py-2.5 text-sm font-medium text-white">Submit another</button>
-      </div>
+      ${footer}
     </section>`;
 }
 
@@ -1315,6 +1333,7 @@ function renderUpload() {
     <p class="mt-4 max-w-2xl text-sm text-slate-500"><span class="font-medium text-ink">AI-assisted, human-controlled. </span>AI can analyse evidence, identify potential gaps and recommend actions. It does not make the final governance decision.</p>`;
   if (receipt) {
     pane.innerHTML = `${banner()}${submissionReceipt(receipt)}`;
+    bindReceiptPad();
     return;
   }
   if (!controls.length) {
@@ -1336,6 +1355,54 @@ function renderUpload() {
     syncAlso(form);
     syncRecorded(form);
   }
+}
+
+function bindReceiptPad() {
+  const canvas = document.getElementById('receipt-pad');
+  if (!canvas || canvas.dataset.bound) return;
+  canvas.dataset.bound = '1';
+  const ctx = canvas.getContext('2d');
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#071E36';
+  let drawing = false;
+  const point = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const source = event.touches ? event.touches[0] : event;
+    return {
+      x: (source.clientX - rect.left) * (canvas.width / rect.width),
+      y: (source.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+  canvas.addEventListener('pointerdown', (event) => {
+    drawing = true;
+    const at = point(event);
+    ctx.beginPath();
+    ctx.moveTo(at.x, at.y);
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    if (!drawing) return;
+    const at = point(event);
+    ctx.lineTo(at.x, at.y);
+    ctx.stroke();
+  });
+  const stop = () => { drawing = false; };
+  canvas.addEventListener('pointerup', stop);
+  canvas.addEventListener('pointercancel', stop);
+  document.getElementById('receipt-clear')?.addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+}
+
+function receiptInk() {
+  const canvas = document.getElementById('receipt-pad');
+  if (!canvas) return '';
+  const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < pixels.length; i += 4) {
+    if (pixels[i] !== 0) return canvas.toDataURL('image/png');
+  }
+  return '';
 }
 
 function fillUploadSummary(form) {
@@ -1487,6 +1554,7 @@ function renderEvidenceDetail(item) {
         <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-sm font-semibold">${escapeHtml(control.id)}</h2>${pill(control.agreed)}</div>
         <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(control.judgement?.reason || '')}</p>
         <p class="mt-2 text-sm text-slate-600">${escapeHtml(control.judgement?.recommendation || '')}</p>
+        ${documentBody(item)}
         ${sourceTrail(control.judgement || { sources: [] })}
         <p class="mt-3 text-xs text-slate-500">AI-assisted, human-controlled. This assessment uses the document on record and can identify a gap. ${escapeHtml(person(control.reviewerId).name)} makes the final decision.</p>
       </section>`).join('') || '<p class="text-sm text-slate-500">This document is not linked to a requirement.</p>';
@@ -1495,7 +1563,7 @@ function renderEvidenceDetail(item) {
     const lines = (ws().history || []).filter((row) => ids.some((id) => String(row.text).includes(id)));
     body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${lines.map((row) => `<li class="border-t border-line py-3 text-sm first:border-t-0"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}<span class="mt-1 block text-xs text-slate-400">${escapeHtml(whenTime(row.at))}</span></li>`).join('') || '<li class="py-4 text-sm text-slate-500">No review history yet.</li>'}</ul></section>`;
   } else if (tab === 'attachments') {
-    body = `<section class="rounded-2xl border border-line bg-white p-5"><p class="text-sm font-medium">${escapeHtml(item.name)}</p><p class="mt-2 text-sm text-slate-600">${escapeHtml(item.location ? `${item.source} · ${item.location}` : (item.source || 'Recorded in the register'))}</p><p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(item.hash || 'No fingerprint')}</p><p class="mt-3 text-xs text-slate-500">${STORAGE_LINE}</p></section>`;
+    body = `<section class="rounded-2xl border border-line bg-white p-5"><p class="text-sm font-medium">${escapeHtml(item.name)}</p><p class="mt-2 text-sm text-slate-600">${escapeHtml(item.location ? `${item.source} · ${item.location}` : (item.source || 'Recorded in the register'))}</p><p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(item.hash || 'No fingerprint')}</p>${documentBody(item)}<p class="mt-3 text-xs text-slate-500">${STORAGE_LINE}</p></section>`;
   } else if (tab === 'comments') {
     const notes = controls.map((control) => control.decision?.comment).filter(Boolean);
     body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${notes.map((note) => `<li class="border-t border-line py-3 text-sm first:border-t-0">${escapeHtml(note)}</li>`).join('') || '<li class="py-4 text-sm text-slate-500">No comments yet.</li>'}</ul></section>`;
@@ -1508,6 +1576,7 @@ function renderEvidenceDetail(item) {
       ['Submitted', whenTime(item.uploadedAt)],
       ['Last updated', whenTime(item.uploadedAt)],
     ];
+    const readings = controls.map((control) => requirementBody(control)).join('') || requirementBody(primary);
     body = `<div class="grid gap-4 lg:grid-cols-[1fr_16rem]">
       <section class="rounded-2xl border border-line bg-white p-5"><dl class="grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
       <aside class="rounded-2xl border border-line bg-white p-5">
@@ -1515,7 +1584,8 @@ function renderEvidenceDetail(item) {
         <p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(hashText || 'Not recorded')}</p>
         <button type="button" id="show-hash" class="mt-4 rounded-lg bg-[#E7EEF8] px-3 py-2 text-sm font-medium text-[#1860C8]">${state.showHash ? 'Hide' : 'View'}</button>
       </aside>
-    </div>`;
+    </div>
+    <div class="mt-4 grid gap-3">${readings}${documentBody(item)}</div>`;
   }
   pane.innerHTML = `
     ${banner()}
@@ -1584,6 +1654,8 @@ function renderProfile() {
 
 function renderEvidence() {
   if (state.profile === 'uploader') return renderUserEvidence();
+  const selected = (ws().evidence || []).find((item) => item.id === state.evidenceId);
+  if (selected) return renderEvidenceDetail(selected);
   const all = ws().controls;
   const withFile = all.filter((control) => control.evidenceIds.length).length;
   const pct = all.length ? Math.round((withFile / all.length) * 100) : 0;
@@ -1636,6 +1708,45 @@ function renderEvidence() {
     </div>`;
 }
 
+function safePlace(location) {
+  const value = String(location || '').trim();
+  if (/^https?:\/\//i.test(value)) {
+    return `<a href="${escapeHtml(value)}" target="_blank" rel="noopener" class="font-medium text-[#1860C8]">${escapeHtml(value)}</a>`;
+  }
+  return escapeHtml(value);
+}
+
+function requirementBody(control) {
+  if (!control) return '';
+  return `
+    <div class="rounded-xl border border-line bg-mist px-4 py-3">
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Requirement</p>
+      <p class="mt-2 text-sm font-medium">${escapeHtml(control.id)}</p>
+      <p class="mt-2 text-sm leading-relaxed text-slate-700">${escapeHtml(control.requirement || 'No wording has been recorded for this requirement.')}</p>
+      <p class="mt-2 text-xs text-slate-500">${escapeHtml([control.expected, control.frequency].filter(Boolean).join(' · '))}</p>
+    </div>`;
+}
+
+function documentBody(item) {
+  if (!item) return '<p class="text-sm leading-relaxed text-slate-600">No document has been filed for this requirement.</p>';
+  const text = String(item.note || '').trim();
+  const place = item.location ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">Where it lives. ${safePlace(item.location)}</p>` : '';
+  const wording = text
+    ? `<div class="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-700">${escapeHtml(text)}</div>`
+    : `<p class="mt-3 text-sm leading-relaxed text-slate-600">${item.location ? 'The register has the name and the place. Open that location to read the file.' : 'The register has the name and fingerprint. The wording inside this file was not kept, so it cannot be read here. Submit the document again.'}</p>`;
+  return `
+    <div class="rounded-xl border border-line px-4 py-3">
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Document</p>
+      <p class="mt-2 text-sm font-semibold">${escapeHtml(item.name)}</p>
+      ${wording}
+      ${place}
+    </div>`;
+}
+
+function readingBlock(control, item) {
+  return `<div class="mt-4 grid gap-3">${requirementBody(control)}${documentBody(item)}</div>`;
+}
+
 function sourceTrail(judgement) {
   const source = judgement.sources[0];
   if (!source) return '<p class="text-sm text-slate-600">No file to cite. The register will not guess a result from outside the record.</p>';
@@ -1656,12 +1767,15 @@ function renderReview() {
   const decided = (ws().controls || []).filter((control) => !waiting.includes(control) && matches(control.id + control.requirement));
   const blocks = waiting.map((control) => reviewCard(control)).join('');
   const compact = decided.map((control) => `
-    <article class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">
-      <div>
-        <p class="text-sm font-medium">${escapeHtml(control.id)}</p>
-        <p class="text-xs text-slate-500">${escapeHtml(control.decision.review === 'awaiting' ? 'No file yet' : `${person(control.decision.reviewBy).name} · ${when(control.decision.reviewAt)}`)}</p>
-      </div>
-      ${pill(control.agreed)}
+    <article class="border-t border-line">
+      <button type="button" data-review="${escapeHtml(control.id)}" class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left">
+        <div>
+          <p class="text-sm font-medium">${escapeHtml(control.id)} · ${escapeHtml(controlTitle(control))}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(control.decision.review === 'awaiting' ? 'No file yet' : `${person(control.decision.reviewBy).name} · ${when(control.decision.reviewAt)}`)}</p>
+        </div>
+        <span class="flex items-center gap-3">${pill(control.agreed)}<span class="text-sm font-medium text-[#1860C8]">${state.reviewId === control.id ? 'Hide' : 'Read'}</span></span>
+      </button>
+      ${state.reviewId === control.id ? `<div class="border-t border-line px-5 pb-4">${readingBlock(control, latestFor(control.id))}</div>` : ''}
     </article>`).join('');
   pane.innerHTML = `
     ${banner()}
@@ -1696,6 +1810,7 @@ function reviewCard(control) {
       <p class="mt-4 max-w-3xl text-sm leading-relaxed">${escapeHtml(judgement.reason)}</p>
       ${judgement.recommendation ? `<p class="mt-2 text-sm text-slate-600"><span class="font-medium text-ink">Suggested action. </span>${escapeHtml(judgement.recommendation)}</p>` : ''}
       ${proposed}
+      ${readingBlock(control, filer)}
       ${sourceTrail(judgement)}
       <p class="mt-4 text-xs text-slate-500">AI-assisted, human-controlled. This reading can identify a gap. It does not replace your decision.</p>
       ${blocked ? `<p class="mt-4 rounded-lg bg-slate-50 px-3 py-3 text-sm">${escapeHtml(actor().name)} filed ${escapeHtml(filer.name)}. Reviewer permission does not allow a decision on that submission. ${escapeHtml(person(control.reviewerId).name)} can decide it.</p>` : `
@@ -2450,6 +2565,12 @@ pane.addEventListener('click', (event) => {
     render();
     return;
   }
+  const review = event.target.closest('[data-review]');
+  if (review) {
+    state.reviewId = state.reviewId === review.dataset.review ? '' : review.dataset.review;
+    render();
+    return;
+  }
   const evidence = event.target.closest('[data-evidence]');
   if (evidence) {
     state.evidenceId = state.evidenceId === evidence.dataset.evidence ? '' : evidence.dataset.evidence;
@@ -2505,6 +2626,19 @@ pane.addEventListener('click', (event) => {
 });
 
 pane.addEventListener('submit', (event) => {
+  if (event.target.id === 'receipt-sign-form') {
+    event.preventDefault();
+    const signature = receiptInk();
+    if (!signature) {
+      state.error = 'Draw your signature in the box.';
+      state.flash = '';
+      render();
+      return;
+    }
+    state.error = '';
+    post('/api/loop/sign-evidence', { evidenceId: state.receiptId, signature }, { stay: true });
+    return;
+  }
   if (event.target.id === 'user-evidence-form' || event.target.id === 'user-upload-form') {
     event.preventDefault();
     sendEvidence(event.target);
@@ -2678,6 +2812,7 @@ async function evidenceBody(form) {
   if (!source) throw new Error('Choose where the document lives.');
   let name = String(data.get('name') || '').trim();
   let fileHash = '';
+  let documentText = '';
   if (source.connected) {
     const file = form.querySelector('input[name="document"]')?.files?.[0];
     if (!file) throw new Error('Choose a file from this computer.');
@@ -2686,17 +2821,104 @@ async function evidenceBody(form) {
     if (!bytes.byteLength) throw new Error('That file is empty, so it cannot be read.');
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     fileHash = [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
+    documentText = await readDocumentText(file, bytes);
   }
   return {
     name,
     controlId: data.get('controlId'),
     controlIds: data.getAll('also'),
     note: data.get('note'),
+    documentText,
     sourceId,
     location: data.get('location') || '',
     fileHash,
     reviewDue: data.get('reviewDue') || '',
   };
+}
+
+function clipText(value) {
+  return String(value || '').replace(/\u0000/g, '').trim().slice(0, 12000);
+}
+
+async function readDocumentText(file, bytes) {
+  const name = String(file?.name || '').toLowerCase();
+  try {
+    if (name.endsWith('.docx')) return clipText(docxPlain(await zipEntry(bytes, 'word/document.xml')));
+    if (name.endsWith('.pdf')) return clipText(pdfPlain(bytes));
+    if (file.type.startsWith('text/') || /\.(txt|md|csv|json|html|htm|rtf|log)$/.test(name)) {
+      return clipText(new TextDecoder().decode(bytes));
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function docxPlain(xml) {
+  return String(xml || '')
+    .replace(/<w:tab\/>/g, '\t')
+    .replace(/<w:br\/>/g, '\n')
+    .replace(/<\/w:p>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+function pdfPlain(buffer) {
+  const raw = new TextDecoder('latin1').decode(new Uint8Array(buffer));
+  const parts = [];
+  const pattern = /\(((?:\\.|[^\\)]){1,400})\)\s*Tj/g;
+  let match = pattern.exec(raw);
+  while (match) {
+    parts.push(match[1].replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\([()\\])/g, '$1'));
+    match = pattern.exec(raw);
+  }
+  return parts.join(' ');
+}
+
+async function zipEntry(buffer, wanted) {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  let eocd = -1;
+  const scan = Math.max(0, bytes.length - 22 - 65535);
+  for (let index = bytes.length - 22; index >= scan; index -= 1) {
+    if (view.getUint32(index, true) === 0x06054b50) {
+      eocd = index;
+      break;
+    }
+  }
+  if (eocd < 0) return '';
+  const count = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  for (let entry = 0; entry < count; entry += 1) {
+    if (offset + 46 > bytes.length || view.getUint32(offset, true) !== 0x02014b50) return '';
+    const method = view.getUint16(offset + 10, true);
+    const compressed = view.getUint32(offset + 20, true);
+    const nameLen = view.getUint16(offset + 28, true);
+    const extraLen = view.getUint16(offset + 30, true);
+    const commentLen = view.getUint16(offset + 32, true);
+    const localOffset = view.getUint32(offset + 42, true);
+    const name = new TextDecoder().decode(bytes.slice(offset + 46, offset + 46 + nameLen));
+    if (name === wanted) {
+      if (localOffset + 30 > bytes.length) return '';
+      const localName = view.getUint16(localOffset + 26, true);
+      const localExtra = view.getUint16(localOffset + 28, true);
+      const dataStart = localOffset + 30 + localName + localExtra;
+      const slice = bytes.slice(dataStart, dataStart + compressed);
+      if (method === 0) return new TextDecoder().decode(slice);
+      if (method === 8 && typeof DecompressionStream !== 'undefined') {
+        const stream = new Blob([slice]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+      }
+      return '';
+    }
+    offset += 46 + nameLen + extraLen + commentLen;
+  }
+  return '';
 }
 
 function unlockEvidenceForm(form) {
@@ -2727,6 +2949,7 @@ async function sendEvidence(form) {
     return;
   }
   if (!armButton(button, 'Submitting…')) return;
+  if (form.id !== 'user-upload-form') body.release = true;
   const data = await post('/api/loop/evidence', body, { stay: form.id === 'user-upload-form' });
   if (form.id === 'user-upload-form') {
     if (!state.error && data?.evidenceId) {

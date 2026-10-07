@@ -359,6 +359,7 @@ app.post('/api/auth/logout', (req, res) => loopResult(res, async () => {
 
 app.post('/api/loop/review', (req, res) => loopResult(res, async () => loop.review(await actorBody(req))));
 app.post('/api/loop/evidence', (req, res) => loopResult(res, async () => loop.addEvidence(await actorBody(req))));
+app.post('/api/loop/sign-evidence', (req, res) => loopResult(res, async () => loop.signEvidence(await actorBody(req))));
 app.post('/api/loop/controls', (req, res) => loopResult(res, async () => loop.addControl(await actorBody(req))));
 app.post('/api/loop/templates', (req, res) => loopResult(res, async () => loop.applyTemplate(await actorBody(req))));
 app.post('/api/loop/fix', (req, res) => loopResult(res, async () => loop.submitFix(await actorBody(req))));
