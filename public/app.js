@@ -21,10 +21,11 @@ function pathProfile() {
 
 const NAVS = {
   uploader: [
-    ['dashboard', 'My work', icon('grid')],
-    ['controls', 'My controls', icon('list')],
+    ['dashboard', 'Dashboard', icon('grid')],
     ['evidence', 'Evidence', icon('file')],
+    ['upload', 'Upload', icon('upload')],
     ['tickets', 'Tickets', icon('ticket')],
+    ['profile', 'Profile', icon('user')],
     ['history', 'History', icon('clock')],
   ],
   reviewer: [
@@ -66,6 +67,12 @@ const state = {
   error: '',
   ticketId: '',
   evidenceId: '',
+  evidenceTab: 'overview',
+  evidenceStatus: 'all',
+  evidenceOwner: 'all',
+  evidenceControl: 'all',
+  evidencePage: 1,
+  uploadStep: 1,
   editId: '',
   actorId: '',
   profile: pathProfile() || 'uploader',
@@ -95,6 +102,8 @@ function icon(name) {
     check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/>',
     ticket: '<path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/>',
+    upload: '<path d="M12 16V5"/><path d="M7 9l5-5 5 5"/><path d="M5 19h14"/>',
+    user: '<circle cx="12" cy="8" r="3"/><path d="M5 19c.8-3 3.2-4.5 7-4.5s6.2 1.5 7 4.5"/>',
   };
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
 }
@@ -375,56 +384,228 @@ function controlChoice(control) {
   return `<option value="${escapeHtml(control.id)}">${escapeHtml(short)}</option>`;
 }
 
+function evidenceSources() {
+  return ws()?.evidenceSources || [];
+}
+
+function evidenceFields() {
+  const controls = ws()?.controls || [];
+  const options = evidenceSources().map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)}${source.connected ? '' : ' · not connected'}</option>`).join('');
+  const also = controls.length > 1
+    ? `<fieldset class="mt-3"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs font-normal text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-36 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml((control.requirement || control.expected || '').slice(0, 90))}</span></label>`).join('')}</div></fieldset>`
+    : '';
+  return `
+    <label class="mt-5 block text-sm font-medium">Where it lives
+      <select name="sourceId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none">${options}</select>
+    </label>
+    <div data-source-file class="mt-3">
+      <label class="block text-sm font-medium">File on this computer
+        <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-mist file:px-3 file:py-2 file:text-sm file:font-medium" />
+      </label>
+      <p class="mt-1 text-xs font-normal text-slate-500">The register keeps the file name and a fingerprint. It does not keep a copy of the file.</p>
+    </div>
+    <div data-source-place hidden class="mt-3">
+      <label class="block text-sm font-medium">Where the document already lives
+        <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+      </label>
+      <p class="mt-1 text-xs font-normal text-slate-500">This place is not connected. Record the link or path. The file stays where it is.</p>
+    </div>
+    <label class="mt-3 block text-sm font-medium">Document name
+      <input name="name" required maxlength="160" placeholder="AI_Risk_Assessment_2026.pdf" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+    </label>
+    <label class="mt-3 block text-sm font-medium">Requirement
+      <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none">${controls.map(controlChoice).join('')}</select>
+    </label>
+    ${also}
+    <label class="mt-3 block text-sm font-medium">What the document shows
+      <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand"></textarea>
+    </label>
+    <label class="mt-3 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
+      <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+    </label>`;
+}
+
+function syncEvidenceSource(form) {
+  if (!form) return;
+  const source = evidenceSources().find((row) => row.id === form.elements.sourceId?.value);
+  const file = form.querySelector('[data-source-file]');
+  const place = form.querySelector('[data-source-place]');
+  const connected = Boolean(source?.connected);
+  if (file) file.hidden = !connected;
+  if (place) place.hidden = connected;
+  const fileInput = form.querySelector('input[name="document"]');
+  const locationInput = form.querySelector('input[name="location"]');
+  if (fileInput) fileInput.required = connected;
+  if (locationInput) locationInput.required = !connected;
+}
+
+function syncAlso(form) {
+  if (!form?.elements?.controlId) return;
+  const primary = form.elements.controlId.value;
+  form.querySelectorAll('input[name="also"]').forEach((box) => {
+    const same = box.value === primary;
+    if (same) box.checked = false;
+    box.disabled = same;
+    box.closest('label')?.classList.toggle('opacity-40', same);
+  });
+}
+
+function bindEvidenceForm(form) {
+  syncEvidenceSource(form);
+  syncAlso(form);
+}
+
+function sourceCatalogue() {
+  const rows = evidenceSources().map((source) => `
+    <li class="flex items-center justify-between gap-3 border-t border-line py-2.5 text-sm">
+      <span>${escapeHtml(source.name)}</span>
+      <span class="text-xs font-medium ${source.connected ? 'text-emerald-800' : 'text-slate-500'}">${source.connected ? 'Available' : 'Not connected'}</span>
+    </li>`).join('');
+  if (!rows) return '';
+  return `
+    <section class="mt-5 rounded-xl border border-line bg-white px-5 pb-2 pt-4">
+      <h2 class="text-sm font-semibold">Where evidence can come from</h2>
+      <p class="mt-1 max-w-2xl text-sm text-slate-500">A file from this computer can be recorded now. The other places are named so someone can record where a document already lives. Those connections are not switched on.</p>
+      <ul class="mt-3">${rows}</ul>
+    </section>`;
+}
+
+function firstName(name) {
+  return String(name || 'there').trim().split(/\s+/)[0];
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  const part = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+  return `Good ${part}, ${firstName(actor().name)}`;
+}
+
+function ago(iso) {
+  const then = new Date(iso).getTime();
+  if (!then) return '';
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  if (days < 14) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return when(iso);
+}
+
+function shiftDay(iso, days) {
+  const date = new Date(`${iso}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function statusDonut(counts) {
+  const colors = { MET: '#059669', PARTIAL: '#D97706', 'NOT MET': '#E11D48', 'NO EVIDENCE': '#CBD5E1' };
+  const total = counts.reduce((sum, [, count]) => sum + count, 0);
+  const circ = 2 * Math.PI * 42;
+  let offset = 0;
+  const rings = total
+    ? counts.map(([status, count]) => {
+      const len = (count / total) * circ;
+      const ring = `<circle cx="60" cy="60" r="42" fill="none" stroke="${colors[status]}" stroke-width="14" stroke-dasharray="${len} ${circ - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)"/>`;
+      offset += len;
+      return ring;
+    }).join('')
+    : '<circle cx="60" cy="60" r="42" fill="none" stroke="#E6EAF0" stroke-width="14"/>';
+  return `<svg viewBox="0 0 120 120" class="h-36 w-36 shrink-0" role="img" aria-label="${total} requirements">${rings}<text x="60" y="56" text-anchor="middle" font-size="20" font-weight="700" fill="#121417">${total}</text><text x="60" y="72" text-anchor="middle" font-size="10" fill="#64748b">Total</text></svg>`;
+}
+
+function myTickets() {
+  return (ws().tickets || []).filter((ticket) => ticket.ownerId === state.actorId && ticket.status !== 'resolved');
+}
+
 function renderUploaderHome() {
   const framework = ws().organisation?.framework || 'ISO/IEC 42001';
+  const day = ws().today || new Date().toISOString().slice(0, 10);
   const all = ws().controls || [];
-  const assigned = (ws().tickets || []).filter((ticket) => ticket.ownerId === state.actorId && ticket.status !== 'resolved');
-  const rows = all.map((control) => `
-    <article class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
-      <div class="min-w-0 flex-1">
-        <p class="text-sm font-medium">${escapeHtml(control.expected || control.id)}</p>
-        <p class="mt-1 text-sm leading-relaxed text-slate-600">${escapeHtml(control.requirement)}</p>
-      </div>
-      <div class="flex items-center gap-3">
-        ${pill(control.agreed)}
-        <button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Use this requirement</button>
-      </div>
-    </article>`).join('');
-  const upload = all.length
-    ? `<form id="user-evidence-form" class="mt-5 rounded-xl border border-line bg-white p-5">
-        <h2 class="text-sm font-semibold">Upload a document</h2>
-        <p class="mt-1 text-sm text-slate-500">Choose the requirement this document supports. A different person checks it. You cannot approve your own file.</p>
-        <label class="mt-4 block text-sm font-medium">Document name
-          <input name="name" required maxlength="160" placeholder="AI_Risk_Assessment_2026.pdf" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
-        </label>
-        <label class="mt-3 block text-sm font-medium">Requirement
-          <select name="controlId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">${all.map(controlChoice).join('')}</select>
-        </label>
-        <label class="mt-3 block text-sm font-medium">What the document shows
-          <textarea name="note" required maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand"></textarea>
-        </label>
-        <button type="submit" class="mt-4 inline-flex items-center justify-center rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70">Upload document</button>
-      </form>`
-    : `<section class="mt-5 rounded-xl border border-line bg-white p-5">
-        <h2 class="text-sm font-semibold">Upload a document</h2>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">A document is checked against a requirement. An admin has not added one from the ${escapeHtml(framework)} list yet, so there is nothing to check a file against.</p>
-      </section>`;
+  const files = (ws().evidence || []).filter((item) => !item.rejected);
+  const mine = files.filter((item) => item.uploadedBy === state.actorId);
+  const pending = all.filter((control) => control.decision?.review === 'awaiting' && control.evidenceIds?.length);
+  const assigned = myTickets();
+  const counts = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE'].map((status) => [status, all.filter((control) => control.agreed === status).length]);
+  const legend = counts.map(([status, count]) => {
+    const share = all.length ? Math.round((count / all.length) * 100) : 0;
+    return `<li class="flex items-center justify-between gap-3 text-sm"><span class="flex items-center gap-2">${pill(status)}</span><span class="text-slate-500">${share}% · ${count}</span></li>`;
+  }).join('');
+  const activity = (ws().history || []).slice(0, 6).map((row) => `
+    <li class="flex items-start justify-between gap-3 border-t border-line py-3">
+      <p class="text-sm leading-relaxed"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}</p>
+      <span class="shrink-0 text-xs text-slate-400">${escapeHtml(ago(row.at))}</span>
+    </li>`).join('');
+  const soon = shiftDay(day, 7);
+  const upcoming = [
+    ...assigned.map((ticket) => ({
+      title: ticket.title || ticket.id,
+      meta: ticket.due && ticket.due < day ? `Overdue · ${ticket.due}` : (ticket.due ? `Due ${ticket.due}` : 'Open'),
+      late: Boolean(ticket.due && ticket.due < day),
+      go: 'tickets',
+    })),
+    ...mine.filter((item) => item.reviewDue && item.reviewDue <= soon).map((item) => ({
+      title: item.name,
+      meta: item.reviewDue < day ? `Review date passed · ${item.reviewDue}` : `Review ${item.reviewDue}`,
+      late: item.reviewDue < day,
+      go: 'evidence',
+      evidence: item.id,
+    })),
+  ].slice(0, 5);
+  const upcomingRows = upcoming.map((row) => `
+    <li class="flex items-start justify-between gap-3 border-t border-line py-3">
+      <button type="button" data-go="${row.go}" ${row.evidence ? `data-evidence-open="${escapeHtml(row.evidence)}"` : ''} class="text-left text-sm font-medium text-ink">${escapeHtml(row.title)}</button>
+      <span class="shrink-0 text-xs ${row.late ? 'text-rose-700' : 'text-slate-500'}">${escapeHtml(row.meta)}</span>
+    </li>`).join('');
+  const gaps = all.filter((control) => control.agreed === 'NO EVIDENCE').length;
+  const expiring = mine.filter((item) => item.reviewDue && item.reviewDue <= soon).length;
+  const overdue = assigned.filter((ticket) => ticket.due && ticket.due < day).length;
+  const insights = [
+    gaps ? [`${gaps} requirement${gaps === 1 ? '' : 's'} still have no document`, 'bg-rose-50 text-rose-900'] : '',
+    expiring ? [`${expiring} of your documents ${expiring === 1 ? 'is' : 'are'} due for review`, 'bg-amber-50 text-amber-950'] : '',
+    assigned.length ? [`${assigned.length} open ticket${assigned.length === 1 ? '' : 's'} assigned to you`, 'bg-[#F4F8FE] text-[#163A66]'] : '',
+    overdue ? [`${overdue} ticket${overdue === 1 ? ' is' : 's are'} overdue`, 'bg-rose-50 text-rose-900'] : '',
+  ].filter(Boolean);
+  const insightRow = insights.length
+    ? insights.map(([text, tone]) => `<p class="rounded-xl px-4 py-3 text-sm font-medium ${tone}">${escapeHtml(text)}</p>`).join('')
+    : '<p class="rounded-xl bg-mist px-4 py-3 text-sm text-slate-600">Nothing is waiting on you right now.</p>';
   pane.innerHTML = `
     ${banner()}
     ${noteCards()}
     ${ackCards()}
-    <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(framework)}</p>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(actor().name)}</h1>
-    <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">This page is for the requirements this organisation is keeping under ${escapeHtml(framework)}. Upload a document against one of them. A named person checks it. This is not an internal audit or a certificate.</p>
-    ${upload}
-    <section class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
-      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-        <h2 class="text-sm font-semibold">Requirements</h2>
-        <p class="text-sm text-slate-500">${assigned.length ? `${assigned.length} ticket${assigned.length === 1 ? '' : 's'} assigned to you` : 'No ticket is assigned to you'}</p>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(framework)}</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(greeting())}</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">Your documents, the requirements they support, and what a reviewer still has to check. A reading is calculated from the record. A named person decides. This is not a certificate.</p>
       </div>
-      ${rows || `<p class="border-t border-line px-5 py-6 text-sm text-slate-500">No ${escapeHtml(framework)} requirement is on the register yet.</p>`}
-    </section>
-    <button type="button" data-go="tickets" class="mt-5 text-sm font-medium text-brand">Open your tickets</button>`;
+      <button type="button" data-go="upload" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload a document</button>
+    </div>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Requirements</p><p class="mt-2 text-3xl font-semibold tracking-tight">${all.length}</p><p class="mt-1 text-xs text-slate-400">On the control set</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Documents</p><p class="mt-2 text-3xl font-semibold tracking-tight">${files.length}</p><p class="mt-1 text-xs text-slate-400">${mine.length} filed by you</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Waiting for review</p><p class="mt-2 text-3xl font-semibold tracking-tight">${pending.length}</p><p class="mt-1 text-xs text-slate-400">A person still has to check</p></article>
+      <article class="rounded-2xl border border-line bg-white p-4"><p class="text-sm text-slate-500">Your tickets</p><p class="mt-2 text-3xl font-semibold tracking-tight">${assigned.length}</p><p class="mt-1 text-xs text-slate-400">${overdue ? `${overdue} overdue` : 'Assigned to you'}</p></article>
+    </div>
+    <div class="mt-4 grid gap-4 xl:grid-cols-3">
+      <section class="rounded-2xl border border-line bg-white p-5 xl:col-span-1">
+        <h2 class="text-sm font-semibold">Requirement status</h2>
+        <div class="mt-4 flex flex-wrap items-center gap-4">
+          ${statusDonut(counts)}
+          <ul class="min-w-[10rem] flex-1 space-y-2">${legend}</ul>
+        </div>
+      </section>
+      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
+        <h2 class="text-sm font-semibold">Recent activity</h2>
+        <ul class="mt-2">${activity || '<li class="border-t border-line py-4 text-sm text-slate-500">Nothing has been recorded yet.</li>'}</ul>
+      </section>
+      <section class="rounded-2xl border border-line bg-white px-5 pb-2 pt-5">
+        <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Coming up</h2><button type="button" data-go="tickets" class="text-xs font-medium text-brand">Tickets</button></div>
+        <ul class="mt-2">${upcomingRows || '<li class="border-t border-line py-4 text-sm text-slate-500">No review date or ticket is due.</li>'}</ul>
+      </section>
+    </div>
+    <div class="mt-4 grid gap-3 md:grid-cols-2">${insightRow}</div>`;
 }
 
 function field(label, name, value, extra = '') {
@@ -525,6 +706,7 @@ function renderAdminHome() {
     <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Admin · ${escapeHtml(org.id || 'ORG-001')}</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
     <p class="mt-2 max-w-3xl text-sm text-slate-500">This page records who the organisation is, how it is structured, and who may own or review a requirement. People confirm their own name and email when they sign up. Saving this does not create evidence or tickets, and it does not approve a file.</p>
+    ${sourceCatalogue()}
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       ${fact('Framework', org.framework || 'ISO/IEC 42001')}
       ${fact('Country', org.country || 'Not set')}
@@ -863,7 +1045,291 @@ function renderTemplates() {
     <div class="mt-4 grid gap-3 lg:grid-cols-2">${cards}</div>`;
 }
 
+function renderUpload() {
+  const framework = ws().organisation?.framework || 'ISO/IEC 42001';
+  const controls = ws().controls || [];
+  if (!controls.length) {
+    pane.innerHTML = `
+      ${banner()}
+      <h1 class="text-2xl font-semibold tracking-tight">Upload a document</h1>
+      <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">A document is checked against a requirement under ${escapeHtml(framework)}. An admin has not added one yet, so there is nowhere to file it.</p>`;
+    return;
+  }
+  const steps = ['Where it lives', 'Requirement', 'Details', 'Confirm'];
+  const pips = steps.map((label, index) => {
+    const number = index + 1;
+    const on = state.uploadStep === number;
+    const done = state.uploadStep > number;
+    return `<li data-upload-pip="${number}" class="flex items-center gap-2 text-sm ${on ? 'font-semibold text-ink' : 'text-slate-400'}"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${on || done ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}">${number}</span>${escapeHtml(label)}</li>`;
+  }).join('');
+  pane.innerHTML = `
+    ${banner()}
+    <h1 class="text-2xl font-semibold tracking-tight">Upload a document</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500">The reviewer for that requirement is told when this is filed. You cannot approve your own document.</p>
+    <form id="user-upload-form" class="mt-5 rounded-2xl border border-line bg-white p-5">
+      <ol class="flex flex-wrap gap-x-5 gap-y-2">${pips}</ol>
+      <div data-upload-panel="1" ${state.uploadStep === 1 ? '' : 'hidden'}>
+        <label class="mt-5 block text-sm font-medium">Where it lives
+          <select name="sourceId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none">${evidenceSources().map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.name)}${source.connected ? '' : ' · not connected'}</option>`).join('')}</select>
+        </label>
+        <div data-source-file class="mt-3">
+          <label class="block text-sm font-medium">File on this computer
+            <input name="document" type="file" class="mt-1 block w-full text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-mist file:px-3 file:py-2 file:text-sm file:font-medium" />
+          </label>
+          <p class="mt-1 text-xs text-slate-500">The register keeps the file name and a fingerprint. It does not keep a copy of the file.</p>
+        </div>
+        <div data-source-place hidden class="mt-3">
+          <label class="block text-sm font-medium">Where the document already lives
+            <input name="location" maxlength="300" placeholder="Link or folder path" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+          </label>
+          <p class="mt-1 text-xs text-slate-500">This place is not connected. Record the link or path. The file stays where it is.</p>
+        </div>
+      </div>
+      <div data-upload-panel="2" ${state.uploadStep === 2 ? '' : 'hidden'}>
+        <label class="mt-5 block text-sm font-medium">Requirement
+          <select name="controlId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">${controls.map(controlChoice).join('')}</select>
+        </label>
+        ${controls.length > 1 ? `<fieldset class="mt-3"><legend class="text-sm font-medium">Also supports</legend><p class="mt-1 text-xs text-slate-500">One document can sit against more than one requirement.</p><div class="mt-2 max-h-40 space-y-1.5 overflow-y-auto">${controls.map((control) => `<label class="flex items-start gap-2 text-sm font-normal"><input type="checkbox" name="also" value="${escapeHtml(control.id)}" class="mt-1" /><span>${escapeHtml(control.id)} · ${escapeHtml((control.requirement || control.expected || '').slice(0, 90))}</span></label>`).join('')}</div></fieldset>` : ''}
+      </div>
+      <div data-upload-panel="3" ${state.uploadStep === 3 ? '' : 'hidden'}>
+        <label class="mt-5 block text-sm font-medium">Document name
+          <input name="name" maxlength="160" placeholder="AI_Risk_Assessment_2026.pdf" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        </label>
+        <label class="mt-3 block text-sm font-medium">What the document shows
+          <textarea name="note" maxlength="500" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand"></textarea>
+        </label>
+        <label class="mt-3 block text-sm font-medium">Review date <span class="font-normal text-slate-500">optional</span>
+          <input name="reviewDue" type="date" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        </label>
+      </div>
+      <div data-upload-panel="4" ${state.uploadStep === 4 ? '' : 'hidden'}>
+        <div id="upload-summary" class="mt-5 rounded-xl bg-mist p-4 text-sm leading-relaxed text-slate-700"></div>
+      </div>
+      <div class="mt-5 flex items-center justify-between gap-3">
+        <button type="button" id="upload-back" class="rounded-lg border border-line px-3 py-2 text-sm ${state.uploadStep === 1 ? 'invisible' : ''}">Back</button>
+        <button type="button" id="upload-next" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white ${state.uploadStep === 4 ? 'hidden' : ''}">Next</button>
+        <button type="submit" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70 ${state.uploadStep === 4 ? '' : 'hidden'}">Upload document</button>
+      </div>
+    </form>`;
+  const form = document.getElementById('user-upload-form');
+  bindEvidenceForm(form);
+  if (state.uploadControl) {
+    const select = form.elements.controlId;
+    if (select) select.value = state.uploadControl;
+    syncAlso(form);
+  }
+  if (state.uploadStep === 4) fillUploadSummary(form);
+}
+
+function fillUploadSummary(form) {
+  const box = document.getElementById('upload-summary');
+  if (!box || !form) return;
+  const data = new FormData(form);
+  const source = evidenceSources().find((row) => row.id === data.get('sourceId'));
+  const control = controlById(data.get('controlId'));
+  const file = form.querySelector('input[name="document"]')?.files?.[0];
+  const also = data.getAll('also').filter((id) => id !== data.get('controlId'));
+  const rows = [
+    ['Where it lives', source?.name || 'Not chosen'],
+    ['File or place', source?.connected ? (file?.name || 'No file chosen') : (data.get('location') || 'No place recorded')],
+    ['Document', data.get('name') || 'Not named'],
+    ['Requirement', control ? `${control.id} · ${control.requirement}` : 'Not chosen'],
+    ['Also supports', also.length ? also.join(', ') : 'None'],
+    ['Review date', data.get('reviewDue') || 'Not set'],
+    ['What it shows', data.get('note') || ''],
+  ];
+  box.innerHTML = rows.map(([label, value]) => `<p class="mt-2 first:mt-0"><span class="text-slate-500">${escapeHtml(label)}. </span>${escapeHtml(value)}</p>`).join('');
+}
+
+function uploadStepReady(form, step) {
+  if (step === 1) {
+    const source = evidenceSources().find((row) => row.id === form.elements.sourceId?.value);
+    if (!source) return 'Choose where the document lives.';
+    if (source.connected && !form.querySelector('input[name="document"]')?.files?.[0]) return 'Choose a file from this computer.';
+    if (!source.connected && !String(form.elements.location?.value || '').trim()) return `Record where the document lives in ${source.name}.`;
+  }
+  if (step === 3) {
+    if (!String(form.elements.name?.value || '').trim()) return 'Give the document a name.';
+    if (!String(form.elements.note?.value || '').trim()) return 'Say what the document shows.';
+  }
+  return '';
+}
+
+function showUploadStep(step) {
+  const form = document.getElementById('user-upload-form');
+  if (!form) return;
+  state.uploadStep = step;
+  form.querySelectorAll('[data-upload-panel]').forEach((panel) => {
+    panel.hidden = Number(panel.dataset.uploadPanel) !== step;
+  });
+  form.querySelectorAll('[data-upload-pip]').forEach((pip) => {
+    const number = Number(pip.dataset.uploadPip);
+    const on = number === step;
+    const done = number < step;
+    pip.className = `flex items-center gap-2 text-sm ${on ? 'font-semibold text-ink' : 'text-slate-400'}`;
+    const badge = pip.querySelector('span');
+    if (badge) badge.className = `inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${on || done ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`;
+  });
+  const back = document.getElementById('upload-back');
+  const next = document.getElementById('upload-next');
+  const submit = form.querySelector('[type="submit"]');
+  if (back) back.classList.toggle('invisible', step === 1);
+  if (next) next.classList.toggle('hidden', step === 4);
+  if (submit) submit.classList.toggle('hidden', step !== 4);
+  if (step === 4) fillUploadSummary(form);
+}
+
+function userEvidenceList() {
+  return evidenceRows().filter((item) => {
+    if (state.evidenceOwner !== 'all' && item.uploadedBy !== state.evidenceOwner) return false;
+    if (state.evidenceControl !== 'all' && !item.controlIds.includes(state.evidenceControl)) return false;
+    if (state.evidenceStatus !== 'all') {
+      const control = controlById(item.controlIds[0]);
+      if ((control?.agreed || 'NO EVIDENCE') !== state.evidenceStatus) return false;
+    }
+    return true;
+  });
+}
+
+function renderUserEvidence() {
+  const selected = (ws().evidence || []).find((item) => item.id === state.evidenceId);
+  if (selected) {
+    renderEvidenceDetail(selected);
+    return;
+  }
+  const rows = userEvidenceList();
+  const pageSize = 6;
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  if (state.evidencePage > pages) state.evidencePage = pages;
+  const start = (state.evidencePage - 1) * pageSize;
+  const slice = rows.slice(start, start + pageSize);
+  const owners = [...new Map((ws().evidence || []).map((item) => [item.uploadedBy, person(item.uploadedBy).name])).entries()];
+  const body = slice.map((item) => {
+    const control = controlById(item.controlIds[0]);
+    return `<tr class="border-t border-line hover:bg-[#FAFBFC]">
+      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.id)}<span class="mt-0.5 block text-xs font-normal text-slate-500">v${item.version}</span></td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(item.name)}</td>
+      <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(item.controlIds.join(', '))}</td>
+      <td class="px-4 py-3 text-sm">${avatar(item.uploadedBy)}</td>
+      <td class="px-4 py-3">${pill(control?.agreed || 'NO EVIDENCE')}</td>
+      <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(when(item.uploadedAt))}</td>
+      <td class="px-4 py-3 text-right"><button type="button" data-evidence="${escapeHtml(item.id)}" class="text-sm font-medium text-brand">Open</button></td>
+    </tr>`;
+  }).join('');
+  const pager = pages > 1 ? `<div class="flex items-center justify-between border-t border-line px-4 py-3 text-sm text-slate-500"><span>Showing ${start + 1}–${Math.min(start + pageSize, rows.length)} of ${rows.length}</span><span class="flex gap-2">${Array.from({ length: pages }, (_, index) => `<button type="button" data-evidence-page="${index + 1}" class="rounded-md px-2 py-1 ${state.evidencePage === index + 1 ? 'bg-brand text-white' : 'border border-line'}">${index + 1}</button>`).join('')}</span></div>` : '';
+  pane.innerHTML = `
+    ${banner()}
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Evidence</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">Each document is recorded against a requirement. Open one to see the fingerprint, the calculated reading, and the history.</p>
+      </div>
+      <button type="button" data-go="upload" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload a document</button>
+    </div>
+    <div class="mt-5 flex flex-wrap gap-2">
+      <select data-evidence-filter="evidenceControl" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All requirements</option>${(ws().controls || []).map((control) => `<option value="${escapeHtml(control.id)}" ${state.evidenceControl === control.id ? 'selected' : ''}>${escapeHtml(control.id)}</option>`).join('')}</select>
+      <select data-evidence-filter="evidenceStatus" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All readings</option>${Object.keys(STATUS).map((status) => `<option value="${status}" ${state.evidenceStatus === status ? 'selected' : ''}>${escapeHtml(STATUS[status][0])}</option>`).join('')}</select>
+      <select data-evidence-filter="evidenceOwner" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All people</option>${owners.map(([id, name]) => `<option value="${escapeHtml(id)}" ${state.evidenceOwner === id ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select>
+    </div>
+    <div class="mt-4 overflow-hidden rounded-2xl border border-line bg-white">
+      <table class="w-full text-left">
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-medium">ID</th><th class="px-4 py-3 font-medium">Document</th><th class="px-4 py-3 font-medium">Requirement</th><th class="px-4 py-3 font-medium">Filed by</th><th class="px-4 py-3 font-medium">Reading</th><th class="px-4 py-3 font-medium">Submitted</th><th class="px-4 py-3"></th></tr></thead>
+        <tbody>${body || `<tr><td colspan="7" class="px-4 py-8 text-sm text-slate-500">${state.query || state.evidenceStatus !== 'all' || state.evidenceOwner !== 'all' || state.evidenceControl !== 'all' ? 'Nothing matches.' : 'No document has been filed yet.'}</td></tr>`}</tbody>
+      </table>
+      ${pager}
+    </div>`;
+}
+
+function renderEvidenceDetail(item) {
+  const tab = state.evidenceTab || 'overview';
+  const tabs = [
+    ['overview', 'Overview'],
+    ['reading', 'Reading'],
+    ['history', 'History'],
+  ].map(([id, label]) => `<button type="button" data-evidence-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-brand text-brand' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
+  const controls = item.controlIds.map((id) => controlById(id)).filter(Boolean);
+  const primary = controls[0];
+  let body = '';
+  if (tab === 'reading') {
+    body = controls.map((control) => `
+      <section class="mt-4 rounded-xl border border-line p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-sm font-semibold">${escapeHtml(control.id)}</h2>${pill(control.agreed)}</div>
+        <p class="mt-2 text-sm leading-relaxed text-slate-600">${escapeHtml(control.judgement?.reason || '')}</p>
+        <p class="mt-2 text-sm text-slate-600">${escapeHtml(control.judgement?.recommendation || '')}</p>
+        ${sourceTrail(control.judgement || { sources: [] })}
+        <p class="mt-3 text-xs text-slate-500">This reading is calculated from the record. ${escapeHtml(person(control.reviewerId).name)} decides it.</p>
+      </section>`).join('') || '<p class="mt-4 text-sm text-slate-500">This document is not linked to a requirement.</p>';
+  } else if (tab === 'history') {
+    const ids = [item.id, ...item.controlIds];
+    const lines = (ws().history || []).filter((row) => ids.some((id) => String(row.text).includes(id)));
+    body = `<ul class="mt-4">${lines.map((row) => `<li class="border-t border-line py-3 text-sm"><span class="font-medium">${escapeHtml(person(row.actorId).name)}. </span>${escapeHtml(row.text)}<span class="mt-1 block text-xs text-slate-400">${escapeHtml(whenTime(row.at))}</span></li>`).join('') || '<li class="py-3 text-sm text-slate-500">No history mentions this document yet.</li>'}</ul>`;
+  } else {
+    const facts = [
+      ['Document', item.name],
+      ['Version', `v${item.version}`],
+      ['Where it lives', item.location ? `${item.source} · ${item.location}` : (item.source || 'Not recorded')],
+      ['Filed by', person(item.uploadedBy).name],
+      ['Reviewer', primary ? person(primary.reviewerId).name : 'Not set'],
+      ['Submitted', when(item.uploadedAt)],
+      ['Review date', item.reviewDue || 'Not set'],
+      ['Requirements', item.controlIds.join(', ') || 'None'],
+      ['Fingerprint', item.hash || 'Not recorded'],
+    ];
+    body = `<dl class="mt-4 grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 break-all text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl><p class="mt-4 text-sm leading-relaxed text-slate-600">${escapeHtml(item.note || '')}</p>`;
+  }
+  pane.innerHTML = `
+    ${banner()}
+    <button type="button" id="evidence-back" class="text-sm font-medium text-brand">Back to evidence</button>
+    <div class="mt-3 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(item.id)}</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(item.name)}</h1>
+      </div>
+      ${pill(primary?.agreed || 'NO EVIDENCE')}
+    </div>
+    <div class="mt-4 flex gap-1 border-b border-line">${tabs}</div>
+    ${body}`;
+}
+
+function renderProfile() {
+  const who = actor();
+  const roles = (who.roles || []).map((role) => profileLabel(role === 'uploader' ? 'uploader' : role));
+  const manager = who.managerId ? person(who.managerId).name : 'Not set';
+  const facts = [
+    ['Full name', who.name],
+    ['Email', who.email || 'Not set'],
+    ['Department', who.unit || 'Not set'],
+    ['Job', who.title || who.role || 'Not set'],
+    ['Manager', manager],
+    ['Employment', who.employmentType || 'employee'],
+    ['Age range', who.ageRange || 'Not set'],
+    ['Profiles', roles.join(', ') || 'User'],
+  ];
+  pane.innerHTML = `
+    ${banner()}
+    <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500">These details come from the person an admin added. A signature is asked for only when a responsibility needs one.</p>
+    <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_16rem]">
+      <section class="rounded-2xl border border-line bg-white p-5">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#E7EEF8] text-sm font-semibold text-navy">${escapeHtml(initials(who.name))}</span>
+          <div>
+            <p class="text-lg font-semibold">${escapeHtml(who.name)}</p>
+            <p class="text-sm text-slate-500">${escapeHtml(who.title || who.role || 'User')}</p>
+          </div>
+        </div>
+        <dl class="mt-5 grid gap-4 sm:grid-cols-2">${facts.map(([label, value]) => `<div><dt class="text-xs text-slate-500">${escapeHtml(label)}</dt><dd class="mt-1 text-sm font-medium">${escapeHtml(value)}</dd></div>`).join('')}</dl>
+      </section>
+      <section class="rounded-2xl border border-line bg-white p-5">
+        <h2 class="text-sm font-semibold">Signature</h2>
+        <p class="mt-3 text-sm font-medium">${escapeHtml(who.signatureStatus || 'Not signed')}</p>
+        <p class="mt-2 text-sm text-slate-500">Joining the organisation does not require a signature. One is kept when you acknowledge a responsibility.</p>
+      </section>
+    </div>`;
+}
+
 function renderEvidence() {
+  if (state.profile === 'uploader') return renderUserEvidence();
   const all = ws().controls;
   const withFile = all.filter((control) => control.evidenceIds.length).length;
   const pct = all.length ? Math.round((withFile / all.length) * 100) : 0;
@@ -879,14 +1345,14 @@ function renderEvidence() {
       <td class="whitespace-nowrap px-5 py-3 text-sm">${escapeHtml(item.controlIds.join(', '))}</td>
       <td class="px-5 py-3 text-right"><button type="button" data-evidence="${item.id}" class="text-sm font-medium text-brand">${state.evidenceId === item.id ? 'Hide' : 'Open'}</button></td>
     </tr>
-    ${state.evidenceId === item.id ? `<tr class="border-t border-line bg-[#FAFBFC]"><td colspan="6" class="px-5 py-4 text-sm"><p><span class="text-slate-500">Fingerprint. </span><span class="font-medium">${escapeHtml(item.hash)}</span></p><p class="mt-1"><span class="text-slate-500">Section. </span>${escapeHtml(item.section)}</p><p class="mt-1"><span class="text-slate-500">Source. </span>${escapeHtml(item.source)}</p></td></tr>` : ''}`).join('');
+    ${state.evidenceId === item.id ? `<tr class="border-t border-line bg-[#FAFBFC]"><td colspan="6" class="px-5 py-4 text-sm"><p><span class="text-slate-500">${item.section === 'File from this computer' ? 'Fingerprint of the file' : 'Fingerprint of the recorded place'}. </span><span class="font-medium">${escapeHtml(item.hash)}</span></p><p class="mt-1"><span class="text-slate-500">Where it lives. </span>${escapeHtml(item.source || 'Not recorded')}${item.location ? ` · ${escapeHtml(item.location)}` : ''}</p><p class="mt-1"><span class="text-slate-500">Review date. </span>${escapeHtml(item.reviewDue || 'Not set')}</p></td></tr>` : ''}`).join('');
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation?.framework || 'ISO/IEC 42001')}</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">Evidence</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">A document is recorded against a requirement. Drive, SharePoint, and a server folder are not connected.</p>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">A document is recorded against a requirement. A file from this computer is fingerprinted here. Google Drive, SharePoint, OneDrive, and the other repositories are named, and a person records where the file already lives.</p>
       </div>
       ${state.profile === 'uploader' ? '<button type="button" data-open-evidence class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload a document</button>' : ''}
     </div>
@@ -906,6 +1372,7 @@ function renderEvidence() {
         </dl>
       </section>
     </div>
+    ${sourceCatalogue()}
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
       <table class="w-full text-left">
         <thead class="text-xs uppercase tracking-wide text-slate-500"><tr>
@@ -923,7 +1390,7 @@ function sourceTrail(judgement) {
     ['Evidence', source.evidenceId],
     ['Document', source.name],
     ['Version', `v${source.version}`],
-    ['Section', source.section],
+    ['Where it lives', source.location ? `${source.repository} · ${source.location}` : (source.repository || source.section)],
     ['Fingerprint', hashLine(source.hash)],
   ];
   return `<dl class="mt-4 grid gap-3 sm:grid-cols-2">${rows
@@ -1133,6 +1600,8 @@ const PAGES = {
   review: renderReview,
   tickets: renderTickets,
   history: renderHistory,
+  upload: renderUpload,
+  profile: renderProfile,
 };
 
 function navButton(id, label, glyph, mobile) {
@@ -1142,7 +1611,7 @@ function navButton(id, label, glyph, mobile) {
   }
   const ticketCount = (ws()?.tickets || []).filter((ticket) => ticket.status !== 'resolved' && (state.profile !== 'uploader' || ticket.ownerId === state.actorId)).length;
   const badge = id === 'review' ? waitingReviews().length : id === 'tickets' ? ticketCount : 0;
-  return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${on ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/15 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
+  return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm ${on ? 'bg-brand text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
 }
 
 function personOptions(rows) {
@@ -1156,8 +1625,17 @@ function paintChrome() {
   const viewName = VIEW_NAME[state.profile] || 'User';
   document.getElementById('view-label').textContent = viewName;
   document.getElementById('view-label-mobile').textContent = viewName;
-  document.getElementById('profile-note').textContent = PROFILE_NOTE[state.profile] || '';
-  document.getElementById('signed-name').textContent = actor().name;
+  const who = actor();
+  const sidePerson = document.getElementById('side-person');
+  if (sidePerson) sidePerson.textContent = who.name && who.name !== 'Unassigned' ? who.name : 'Evidence Register';
+  document.getElementById('profile-note').textContent = who.title || who.role || PROFILE_NOTE[state.profile] || '';
+  document.getElementById('signed-name').textContent = who.name && who.name !== 'Unassigned' ? who.name : '';
+  const headerDate = document.getElementById('header-date');
+  if (headerDate) {
+    headerDate.textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  const headerUpload = document.getElementById('header-upload');
+  if (headerUpload) headerUpload.hidden = state.profile !== 'uploader';
   document.getElementById('side-nav').innerHTML = navItems().map(([id, label, glyph]) => navButton(id, label, glyph, false)).join('');
   document.getElementById('mobile-nav').innerHTML = navItems().map(([id, label]) => navButton(id, label, '', true)).join('');
   const evidenceSelect = document.querySelector('#evidence-form select[name="controlId"]');
@@ -1192,6 +1670,14 @@ function paintNotes() {
     </button>`).join('') || '<p class="px-2 py-3 text-sm text-slate-500">Nothing has been sent to you yet.</p>';
 }
 
+function fillEvidenceDialog() {
+  const box = document.getElementById('evidence-fields');
+  const dialog = document.getElementById('evidence-dialog');
+  if (!box || dialog?.open || !ws()) return;
+  box.innerHTML = evidenceFields();
+  bindEvidenceForm(document.getElementById('evidence-form'));
+}
+
 function render() {
   if (!ws()) {
     pane.innerHTML = '<p class="text-sm text-slate-500">Loading the register…</p>';
@@ -1199,6 +1685,7 @@ function render() {
   }
   paintChrome();
   (PAGES[state.page] || renderDashboard)();
+  fillEvidenceDialog();
 }
 
 function showGate() {
@@ -1446,14 +1933,20 @@ function openEvidence(controlId) {
     render();
     return;
   }
-  const inline = document.querySelector('#user-evidence-form select[name="controlId"]');
-  if (inline) {
-    if (controlId) inline.value = controlId;
-    inline.closest('form')?.scrollIntoView({ block: 'nearest' });
+  if (state.profile === 'uploader') {
+    state.page = 'upload';
+    state.uploadStep = 1;
+    state.uploadControl = controlId || '';
+    state.flash = '';
+    state.error = '';
+    render();
     return;
   }
   const select = document.querySelector('#evidence-form select[name="controlId"]');
-  if (select && controlId) select.value = controlId;
+  if (select && controlId) {
+    select.value = controlId;
+    syncAlso(select.form);
+  }
   document.getElementById('evidence-dialog').showModal();
 }
 
@@ -1579,8 +2072,49 @@ pane.addEventListener('click', (event) => {
     });
     return;
   }
+  const uploadNext = event.target.closest('#upload-next');
+  if (uploadNext) {
+    const form = document.getElementById('user-upload-form');
+    const problem = uploadStepReady(form, state.uploadStep);
+    if (problem) {
+      showFormError(form, problem);
+      return;
+    }
+    form.querySelector('.er-form-error')?.remove();
+    const file = form.querySelector('input[name="document"]')?.files?.[0];
+    if (file && form.elements.name && !String(form.elements.name.value || '').trim()) form.elements.name.value = file.name;
+    showUploadStep(Math.min(4, state.uploadStep + 1));
+    return;
+  }
+  if (event.target.closest('#upload-back')) {
+    showUploadStep(Math.max(1, state.uploadStep - 1));
+    return;
+  }
+  if (event.target.id === 'evidence-back') {
+    state.evidenceId = '';
+    state.evidenceTab = 'overview';
+    render();
+    return;
+  }
+  const tab = event.target.closest('[data-evidence-tab]');
+  if (tab) {
+    state.evidenceTab = tab.dataset.evidenceTab;
+    render();
+    return;
+  }
+  const pageButton = event.target.closest('[data-evidence-page]');
+  if (pageButton) {
+    state.evidencePage = Number(pageButton.dataset.evidencePage) || 1;
+    render();
+    return;
+  }
   const go = event.target.closest('[data-go]');
   if (go) {
+    if (go.dataset.evidenceOpen) {
+      state.evidenceId = go.dataset.evidenceOpen;
+      state.evidenceTab = 'overview';
+    }
+    if (go.dataset.go === 'upload') state.uploadStep = 1;
     state.page = go.dataset.go;
     state.flash = '';
     render();
@@ -1641,12 +2175,9 @@ pane.addEventListener('click', (event) => {
 });
 
 pane.addEventListener('submit', (event) => {
-  if (event.target.id === 'user-evidence-form') {
+  if (event.target.id === 'user-evidence-form' || event.target.id === 'user-upload-form') {
     event.preventDefault();
-    const data = new FormData(event.target);
-    const button = event.target.querySelector('[type="submit"]');
-    if (!armButton(button, 'Uploading…')) return;
-    post('/api/loop/evidence', { name: data.get('name'), controlId: data.get('controlId'), note: data.get('note') });
+    sendEvidence(event.target);
     return;
   }
   const editForm = event.target.closest('[data-edit-form]');
@@ -1763,6 +2294,12 @@ pane.addEventListener('submit', (event) => {
 });
 
 pane.addEventListener('change', (event) => {
+  if (event.target.dataset.evidenceFilter) {
+    state[event.target.dataset.evidenceFilter] = event.target.value;
+    state.evidencePage = 1;
+    render();
+    return;
+  }
   if (event.target.id === 'place-person') {
     const row = person(event.target.value);
     const form = event.target.form;
@@ -1783,11 +2320,97 @@ pane.addEventListener('change', (event) => {
 
 document.getElementById('evidence-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  const data = new FormData(event.target);
-  document.getElementById('evidence-dialog').close();
-  post('/api/loop/evidence', { name: data.get('name'), controlId: data.get('controlId'), note: data.get('note') });
-  event.target.reset();
+  sendEvidence(event.target);
 });
+
+document.addEventListener('change', (event) => {
+  const form = event.target.form;
+  if (!form || (form.id !== 'evidence-form' && form.id !== 'user-evidence-form' && form.id !== 'user-upload-form')) return;
+  if (event.target.name === 'sourceId') syncEvidenceSource(form);
+  if (event.target.name === 'controlId') syncAlso(form);
+  if (event.target.name === 'document' && event.target.files?.[0]) {
+    const name = form.elements.name;
+    if (name && !String(name.value || '').trim()) name.value = event.target.files[0].name;
+  }
+});
+
+async function evidenceBody(form) {
+  const data = new FormData(form);
+  const sourceId = String(data.get('sourceId') || '');
+  const source = evidenceSources().find((row) => row.id === sourceId);
+  if (!source) throw new Error('Choose where the document lives.');
+  let name = String(data.get('name') || '').trim();
+  let fileHash = '';
+  if (source.connected) {
+    const file = form.querySelector('input[name="document"]')?.files?.[0];
+    if (!file) throw new Error('Choose a file from this computer.');
+    if (!name) name = file.name;
+    const bytes = await file.arrayBuffer();
+    if (!bytes.byteLength) throw new Error('That file is empty, so it cannot be read.');
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    fileHash = [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
+  }
+  return {
+    name,
+    controlId: data.get('controlId'),
+    controlIds: data.getAll('also'),
+    note: data.get('note'),
+    sourceId,
+    location: data.get('location') || '',
+    fileHash,
+    reviewDue: data.get('reviewDue') || '',
+  };
+}
+
+function unlockEvidenceForm(form) {
+  form.querySelectorAll('input, select, textarea, button').forEach((field) => { field.disabled = false; });
+  form.querySelector('.er-hold')?.remove();
+  const button = form.querySelector('[type="submit"]');
+  if (button) {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.textContent = 'Upload document';
+  }
+  syncAlso(form);
+}
+
+async function sendEvidence(form) {
+  form.querySelector('.er-form-error')?.remove();
+  const button = form.querySelector('[type="submit"]');
+  let body;
+  try {
+    body = await evidenceBody(form);
+  } catch (error) {
+    state.error = error.message || 'Choose a file and a requirement.';
+    state.flash = '';
+    if (form.id === 'evidence-form') {
+      unlockEvidenceForm(form);
+      showFormError(form, state.error);
+    } else render();
+    return;
+  }
+  if (!armButton(button, 'Uploading…')) return;
+  await post('/api/loop/evidence', body);
+  if (form.id !== 'evidence-form') return;
+  if (!state.error) {
+    form.reset();
+    document.getElementById('evidence-dialog').close();
+    fillEvidenceDialog();
+  } else {
+    unlockEvidenceForm(form);
+    showFormError(form, state.error);
+  }
+}
+
+function showFormError(form, message) {
+  let note = form.querySelector('.er-form-error');
+  if (!note) {
+    note = document.createElement('p');
+    note.className = 'er-form-error mt-3 text-sm text-rose-700';
+    form.appendChild(note);
+  }
+  note.textContent = message;
+}
 
 document.getElementById('person-form').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -1921,6 +2544,15 @@ document.addEventListener('click', (event) => {
     return;
   }
   if (panel && !panel.hidden && !event.target.closest('#note-panel')) panel.hidden = true;
+});
+
+document.getElementById('header-upload')?.addEventListener('click', () => {
+  state.page = 'upload';
+  state.uploadStep = 1;
+  state.uploadControl = '';
+  state.flash = '';
+  state.error = '';
+  render();
 });
 
 document.getElementById('sign-out').addEventListener('click', async () => {

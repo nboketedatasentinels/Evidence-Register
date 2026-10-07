@@ -19,6 +19,8 @@ alter table controls add column if not exists template_id text not null default 
 alter table controls add column if not exists origin text not null default 'custom';
 alter table controls add column if not exists responsibility_version integer not null default 1;
 
+alter table evidence add column if not exists location text not null default '';
+
 create table if not exists invitations (
   id text primary key,
   organisation_id text not null references organisations (id),
@@ -202,13 +204,14 @@ begin
   where coalesce(c->>'id', '') <> '';
 
   insert into evidence (
-    id, organisation_id, name, version, uploaded_by, uploaded_at, source, hash,
+    id, organisation_id, name, version, uploaded_by, uploaded_at, source, location, hash,
     note, section, has_review, readable, review_due, rejected
   )
   select
     e->>'id', org_id, e->>'name', coalesce((e->>'version')::integer, 1), e->>'uploadedBy',
     coalesce(nullif(e->>'uploadedAt', '')::timestamptz, now()),
     coalesce(nullif(e->>'source', ''), 'Manual upload'),
+    coalesce(e->>'location', ''),
     coalesce(e->>'hash', ''),
     coalesce(e->>'note', ''),
     coalesce(nullif(e->>'section', ''), 'Uploaded note'),
