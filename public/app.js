@@ -672,7 +672,7 @@ function renderOrganisation() {
         <label class="mt-4 block text-sm font-medium">Spreadsheet
           <input name="file" type="file" accept=".xlsx,.xls,.csv" required class="mt-1 block w-full text-sm" />
         </label>
-        <button type="submit" class="mt-4 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Upload file</button>
+        <button type="submit" class="mt-4 inline-flex items-center justify-center rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70">Upload file</button>
       </form>
       <form id="invite-form" class="rounded-xl border border-line bg-white p-5">
         <h3 class="text-sm font-semibold">Enter manually</h3>
@@ -693,7 +693,7 @@ function renderOrganisation() {
             <input name="unit" maxlength="80" placeholder="Optional" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
           </label>
         </div>
-        <button type="submit" class="mt-4 rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Add this person</button>
+        <button type="submit" class="mt-4 inline-flex items-center justify-center rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70">Add this person</button>
       </form>
     </div>
     <ul class="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">${invites.map((row) => {
@@ -707,7 +707,7 @@ function renderOrganisation() {
           <p class="mt-1 text-xs text-slate-500">${escapeHtml(link)}</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" data-send-invite="${escapeHtml(row.id)}" class="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white">Send email</button>
+          <button type="button" data-send-invite="${escapeHtml(row.id)}" class="inline-flex items-center justify-center rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white disabled:opacity-70">Send email</button>
           <button type="button" data-copy-link="${escapeHtml(link)}" class="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Copy link</button>
           ${penButton({ id: row.id, on: row.signatureRequired })}
         </div>
@@ -1368,13 +1368,33 @@ async function load() {
   showApp();
 }
 
+function busyLabel(text) {
+  return `<span class="inline-flex items-center gap-2"><svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"></circle><path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>${text}</span>`;
+}
+
+function armButton(button, text) {
+  if (!button || button.disabled) return false;
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.innerHTML = busyLabel(text);
+  return true;
+}
+
 async function post(url, body) {
   state.error = '';
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-    body: JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    state.error = 'That did not save. Check the connection and try again.';
+    state.flash = '';
+    render();
+    return;
+  }
   const data = await response.json().catch(() => ({}));
   if (response.status === 401) {
     sessionStorage.removeItem(sessionKey());
@@ -1434,6 +1454,7 @@ pane.addEventListener('click', (event) => {
   }
   const send = event.target.closest('[data-send-invite]');
   if (send) {
+    if (!armButton(send, 'Sending…')) return;
     post('/api/loop/invite-email', { invitationId: send.dataset.sendInvite });
     return;
   }
@@ -1594,6 +1615,8 @@ pane.addEventListener('submit', (event) => {
   }
   if (event.target.id === 'invite-form') {
     event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]');
+    if (!armButton(button, 'Adding…')) return;
     const data = new FormData(event.target);
     post('/api/loop/invite', {
       name: data.get('name'),
@@ -1609,6 +1632,8 @@ pane.addEventListener('submit', (event) => {
     event.preventDefault();
     const file = event.target.file?.files?.[0];
     if (!file) return;
+    const button = event.target.querySelector('[type="submit"]');
+    if (!armButton(button, 'Adding…')) return;
     const reader = new FileReader();
     reader.onload = () => {
       post('/api/loop/people-import', { file: String(reader.result || '').split(',')[1] || '', filename: file.name, signatureRequired: drawingOn() });
