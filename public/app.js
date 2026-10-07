@@ -1634,7 +1634,7 @@ function renderEvidenceDetail(item) {
   if (tab === 'reading') {
     body = controls.map((control) => `
       <section class="rounded-2xl border border-line bg-white p-5">
-        <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-sm font-semibold">${escapeHtml(control.id)}</h2>${pill(control.agreed)}</div>
+        <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="text-sm font-semibold">${escapeHtml(control.id)}</h2><div class="text-right">${control.judgement?.graded && control.decision?.review === 'awaiting' ? '<p class="text-xs text-slate-500">Suggested mark</p>' : ''}${pill(control.judgement?.graded && control.decision?.review === 'awaiting' ? control.judgement.status : control.agreed)}</div></div>
         <p class="mt-3 text-sm leading-relaxed text-slate-600">${escapeHtml(control.judgement?.reason || '')}</p>
         <p class="mt-2 text-sm text-slate-600">${escapeHtml(control.judgement?.recommendation || '')}</p>
         ${documentBody(item)}
@@ -1900,7 +1900,7 @@ function reviewCard(control) {
           <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(control.id)} · ${escapeHtml(judgement.quality)} evidence</p>
           <h2 class="mt-1 text-lg font-semibold">${escapeHtml(control.requirement)}</h2>
         </div>
-        ${pill(judgement.status)}
+        <div class="text-right">${judgement.graded ? '<p class="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Suggested mark</p>' : ''}${pill(judgement.status)}</div>
       </div>
       <p class="mt-4 max-w-3xl text-sm leading-relaxed">${escapeHtml(judgement.reason)}</p>
       ${judgement.recommendation ? `<p class="mt-2 text-sm text-slate-600"><span class="font-medium text-ink">Suggested action. </span>${escapeHtml(judgement.recommendation)}</p>` : ''}
@@ -2001,7 +2001,7 @@ function ticketDetail(ticket) {
 function historyCategory(text) {
   const line = String(text || '');
   if (/^(Opened ticket|Verified ticket|Sent ticket)\b/.test(line) || line.includes('now reads Met')) return 'Tickets';
-  if (/^(Accepted|Rejected|Agreed|Disagreed|Edited|Asked)\b/.test(line)) return 'Decisions';
+  if (/^(Accepted|Rejected|Agreed|Disagreed|Edited|Asked|Suggested)\b/.test(line)) return 'Decisions';
   if (/^(Recorded|Filed)\b/.test(line) || / signed EV-/.test(line)) return 'Evidence';
   if (/evidence owner|acknowledged responsibility|as reviewer for|Changed the owner/.test(line)) return 'Responsibilities';
   if (/^Set /.test(line) || / signed in |created an account|password|link to join|Could not email|draw a signature/.test(line) || /^Added .+ in /.test(line)) return 'People';
