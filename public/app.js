@@ -1708,7 +1708,13 @@ function renderEvidence() {
     </div>`;
 }
 
+function canOpenFile(item) {
+  const location = String(item?.location || '');
+  return location.startsWith('storage:') || /^https?:\/\//i.test(location);
+}
+
 function fileButton(item) {
+  if (!canOpenFile(item)) return `<span class="text-sm font-semibold">${escapeHtml(item.name)}</span>`;
   return `<button type="button" data-open-file="${escapeHtml(item.id)}" class="text-left text-sm font-semibold text-[#1860C8] underline decoration-[#1860C8]/30 underline-offset-2">${escapeHtml(item.name)}</button>`;
 }
 
@@ -1739,7 +1745,7 @@ function documentBody(item) {
   const place = linked ? `<p class="mt-3 text-sm leading-relaxed text-slate-600">Where it lives. ${safePlace(item.location)}</p>` : '';
   const wording = text
     ? `<div class="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-slate-700">${escapeHtml(text)}</div>`
-    : `<p class="mt-3 text-sm leading-relaxed text-slate-600">${stored ? 'Open the document to read the file that was submitted.' : linked ? 'Open the recorded location to read the file.' : 'The register has the name and fingerprint. This file was saved before a copy was kept, so it cannot be opened. Submit the document again.'}</p>`;
+    : `<p class="mt-3 text-sm leading-relaxed text-slate-600">${stored ? 'Open the document to read the file that was submitted.' : linked ? 'Open the recorded location to read the file.' : `${escapeHtml(person(item.uploadedBy).name)} filed this before a copy was kept, so it cannot be opened. They need to submit the document again.`}</p>`;
   return `
     <div class="rounded-xl border border-line px-4 py-3">
       <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Document</p>
