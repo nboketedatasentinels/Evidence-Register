@@ -439,7 +439,7 @@ function requirementLabel(control) {
   return `${control.id} · ${controlTitle(control)}`;
 }
 
-const STORAGE_LINE = 'A file from this computer is kept in a private store so the reviewer can open it. A link records where a document already lives. Drive, SharePoint, and OneDrive are not fetched.';
+const STORAGE_LINE = 'A file from this computer is kept in a private store so the reviewer can open it. Word, PDF, Excel, PowerPoint, text, and image files are read when the file is signed. A link records where a document already lives. Drive, SharePoint, and OneDrive are not fetched.';
 
 function localDay(date) {
   const y = date.getFullYear();
