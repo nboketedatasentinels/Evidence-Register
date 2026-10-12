@@ -24,6 +24,7 @@ const NAVS = {
     ['dashboard', 'Dashboard', icon('grid')],
     ['evidence', 'Evidence Register', icon('file')],
     ['upload', 'Upload Evidence', icon('upload')],
+    ['feedback', 'Reviewer feedback', icon('check')],
     ['tickets', 'Tickets', icon('ticket')],
     ['profile', 'Profile', icon('user')],
     ['history', 'History', icon('clock')],
@@ -40,6 +41,7 @@ const NAVS = {
     ['organisation', 'Organisation', icon('people')],
     ['people', 'People', icon('people')],
     ['controls', 'Controls', icon('list')],
+    ['feedback', 'Reviewer decisions', icon('check')],
     ['history', 'History', icon('clock')],
   ],
 };
@@ -660,6 +662,44 @@ function dutyCards(controls) {
     </article>`).join('');
 }
 
+// One reviewer decision as a card: outcome, document, who, when, why, and what follows.
+function feedbackCard(row, compact = false) {
+  const item = (ws().evidence || []).find((file) => file.id === row.evidenceId);
+  const control = controlById(row.controlId);
+  const ticket = (ws().tickets || []).find((t) => t.id === row.ticketId);
+  const result = ['accepted', 'edited', 'verified'].includes(row.decision) && row.status ? pill(row.status) : '';
+  const doc = item ? fileButton(item) : `<span class="text-sm font-semibold">${escapeHtml(row.evidenceName || 'No document on file')}</span>`;
+  return `<article class="rounded-2xl border border-line bg-white p-4 ${compact ? '' : 'shadow-sm'}">
+    <div class="flex flex-wrap items-center gap-2">${decisionPill(row)}${result}<span class="ml-auto text-xs text-slate-500">${escapeHtml(whenTime(row.at))}</span></div>
+    <p class="mt-2 text-sm"><span class="font-medium">${escapeHtml(person(row.reviewerId).name)}</span> reviewed ${escapeHtml(row.controlId)}${control ? ` · ${escapeHtml(controlTitle(control))}` : ''}</p>
+    <div class="mt-2">${doc}${row.evidenceVersion ? `<span class="ml-2 text-xs text-slate-500">version ${escapeHtml(row.evidenceVersion)} · filed by ${escapeHtml(person(row.filerId).name)}</span>` : ''}</div>
+    ${row.comment ? `<p class="mt-3 rounded-lg bg-mist px-3 py-2 text-sm text-slate-700"><span class="text-xs font-medium uppercase tracking-wide text-slate-500">Reason</span><span class="mt-1 block">${escapeHtml(row.comment)}</span></p>` : '<p class="mt-3 text-xs text-slate-500">No reason was written.</p>'}
+    ${ticket ? `<button type="button" data-go="tickets" class="mt-3 text-sm font-medium text-brand">Ticket ${escapeHtml(ticket.id)} · ${escapeHtml(TICKET[ticket.status] || ticket.status)} · with ${escapeHtml(person(ticket.ownerId).name)}</button>` : ''}
+  </article>`;
+}
+
+function renderFeedback() {
+  const all = ws().reviews || [];
+  const kinds = [['all', 'All decisions'], ['accepted', 'Accepted'], ['rejected', 'Rejected'], ['edited', 'Result edited'], ['requested', 'More evidence requested'], ['verified', 'Fix verified'], ['sent-back', 'Fix sent back']];
+  const filter = kinds.some(([id]) => id === state.feedbackKind) ? state.feedbackKind : 'all';
+  const control = state.feedbackControl || 'all';
+  const q = String(state.query || '').trim().toLowerCase();
+  const rows = all.filter((row) => (filter === 'all' || row.decision === filter)
+    && (control === 'all' || row.controlId === control)
+    && (!q || [row.controlId, row.evidenceName, row.comment, person(row.reviewerId).name, person(row.filerId).name].some((v) => String(v || '').toLowerCase().includes(q))));
+  const admin = state.profile === 'admin';
+  pane.innerHTML = `
+    ${banner()}
+    <h1 class="text-2xl font-semibold tracking-tight">${admin ? 'Reviewer decisions' : 'Reviewer feedback'}</h1>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500">${admin ? 'Every decision a reviewer has made on this organisation: what they decided, why, and on which document. Decisions are only ever added, never rewritten.' : 'What the reviewer decided on the documents you filed and the requirements you own, with their reason.'}</p>
+    <div class="mt-5 flex flex-wrap gap-2">
+      <select data-feedback-filter="feedbackKind" class="rounded-lg border border-line bg-white px-3 py-2 text-sm">${kinds.map(([id, label]) => `<option value="${id}" ${filter === id ? 'selected' : ''}>${label}</option>`).join('')}</select>
+      <select data-feedback-filter="feedbackControl" class="rounded-lg border border-line bg-white px-3 py-2 text-sm"><option value="all">All requirements</option>${(ws().controls || []).map((row) => `<option value="${escapeHtml(row.id)}" ${control === row.id ? 'selected' : ''}>${escapeHtml(row.id)} · ${escapeHtml(controlTitle(row))}</option>`).join('')}</select>
+      <p class="ml-auto self-center text-sm text-slate-500">${rows.length} of ${all.length}</p>
+    </div>
+    <div class="mt-4 grid gap-3 lg:grid-cols-2">${rows.map((row) => feedbackCard(row)).join('') || `<p class="rounded-2xl border border-line bg-white p-6 text-sm text-slate-500 lg:col-span-2">${all.length ? 'No decision matches these filters.' : 'No reviewer has made a decision yet. Decisions appear here as soon as a reviewer accepts, rejects, edits, or asks for more evidence.'}</p>`}</div>`;
+}
+
 function renderUploaderHome() {
   const day = ws().today || new Date().toISOString().slice(0, 10);
   const all = ws().controls || [];
@@ -748,6 +788,10 @@ function renderUploaderHome() {
       </section>
     </div>
     <section class="mt-4">
+      <div class="flex items-center justify-between"><h2 class="text-sm font-semibold">Reviewer feedback</h2><button type="button" data-go="feedback" class="text-xs font-medium text-[#1860C8]">View all</button></div>
+      <div class="mt-3 grid gap-3 lg:grid-cols-2">${(ws().reviews || []).slice(0, 2).map((row) => feedbackCard(row)).join('') || '<p class="rounded-2xl border border-line bg-white p-5 text-sm text-slate-500 lg:col-span-2">No reviewer decision yet. You will be notified here when your document is accepted, rejected, edited, or needs more evidence.</p>'}</div>
+    </section>
+    <section class="mt-4">
       <h2 class="text-sm font-semibold">Key Insights</h2>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${insight('bg-white border border-line', '<span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#E4EAF1] text-[#5C6E82]"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg></span>', notMet, notMet === 1 ? 'Critical issue' : 'Critical issues', 'Requires immediate attention')}
@@ -814,39 +858,58 @@ function evidenceTrayKind(item) {
   const label = fileStatus(item)[0];
   if (label === 'Accepted' || label === 'Met') return 'accepted';
   if (label === 'Rejected' || label === 'Not met') return 'rejected';
+  if (label === 'More evidence requested' || label === 'Partially met') return 'changes';
   return 'review';
+}
+
+// What the status cell says: the decision, who made it, when, and why; or who it waits on.
+function trayStatus(item, control) {
+  const decided = latestReview(item);
+  if (decided) {
+    const result = ['accepted', 'edited', 'verified'].includes(decided.decision) && decided.status ? ` · ${STATUS[decided.status]?.[0] || decided.status}` : '';
+    return `${decisionPill(decided)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(person(decided.reviewerId).name)}, ${escapeHtml(when(decided.at))}${escapeHtml(result)}</span>${decided.comment ? `<span class="mt-1 block max-w-xs text-xs text-slate-600">“${escapeHtml(decided.comment)}”</span>` : ''}`;
+  }
+  const label = fileStatus(item)[0];
+  if (label !== 'Under review') return escapeHtml(label);
+  const waiting = control ? `Waiting on ${person(control.reviewerId).name}` : 'Waiting on a reviewer';
+  const ai = control?.judgement?.graded ? `<span class="mt-1 block text-xs text-slate-500">AI suggests ${escapeHtml(STATUS[control.judgement.status]?.[0] || control.judgement.status)}</span>` : '';
+  return `<span class="text-sm">Under review</span><span class="mt-1 block text-xs text-slate-500">${escapeHtml(waiting)}</span>${ai}`;
 }
 
 function trayMark(kind) {
   if (kind === 'accepted') {
     return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#E7F6EE] text-[#15945A]" title="Accepted"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.5"/></svg></span>`;
   }
+  if (kind === 'changes') {
+    return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FFF4E5] text-[#CC8618]" title="Changes requested"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></span>`;
+  }
   if (kind === 'rejected') {
     return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FDECEE] text-[#DC4A5C]" title="Rejected"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></span>`;
   }
-  return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#FFF4E5] text-[#CC8618]" title="Under review"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>`;
+  return `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-500" title="Under review"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>`;
 }
 
 function evidenceTray() {
   const kinds = [
-    ['accepted', 'Accepted'],
     ['review', 'Under review'],
+    ['accepted', 'Accepted'],
+    ['changes', 'Changes requested'],
     ['rejected', 'Rejected'],
   ];
   const files = ws().evidence || [];
   const counts = Object.fromEntries(kinds.map(([id]) => [id, files.filter((item) => evidenceTrayKind(item) === id).length]));
-  const current = kinds.some(([id]) => id === state.adminTray) ? state.adminTray : 'accepted';
+  const firstFull = kinds.find(([id]) => counts[id])?.[0] || 'review';
+  const current = kinds.some(([id]) => id === state.adminTray) ? state.adminTray : firstFull;
   const rows = files.filter((item) => evidenceTrayKind(item) === current).map((item) => {
     const control = controlById(item.controlIds?.[0]);
     const kind = evidenceTrayKind(item);
-    const label = fileStatus(item)[0];
     return `<tr class="border-t border-line">
       <td class="px-4 py-3">${trayMark(kind)}</td>
-      <td class="px-4 py-3 text-sm font-medium">${escapeHtml(item.name)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(item.id)}</span></td>
+      <td class="px-4 py-3 text-sm font-medium">${fileButton(item)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(item.id)} · version ${escapeHtml(item.version)}</span></td>
       <td class="px-4 py-3 text-sm">${escapeHtml(control ? `${control.id} · ${controlTitle(control)}` : 'Not linked')}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(person(item.uploadedBy).name)}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(control ? person(control.reviewerId).name : '—')}</td>
-      <td class="px-4 py-3 text-sm">${escapeHtml(label)}</td>
+      <td class="px-4 py-3 text-sm">${trayStatus(item, control)}</td>
       <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(when(item.uploadedAt))}</td>
     </tr>`;
   }).join('');
@@ -854,11 +917,16 @@ function evidenceTray() {
     const on = id === current;
     return `<button type="button" data-admin-tray="${id}" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${on ? 'bg-[#071E36] text-white' : 'border border-line bg-white text-slate-700'}">${trayMark(id)}<span>${label}</span><span class="${on ? 'text-white/80' : 'text-slate-400'}">${counts[id]}</span></button>`;
   }).join('');
-  const empty = current === 'accepted' ? 'No document has been accepted yet.' : current === 'rejected' ? 'No document has been rejected.' : 'Nothing is waiting for a decision.';
+  const empty = {
+    accepted: 'No document has been accepted yet.',
+    rejected: 'No document has been rejected.',
+    changes: 'No reviewer has asked for changes.',
+    review: 'Nothing is waiting for a decision.',
+  }[current];
   return `
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
       <h2 class="text-sm font-semibold">Evidence</h2>
-      <p class="mt-1 max-w-3xl text-sm text-slate-500">Every document stays on the register. Choose a category to see that set.</p>
+      <p class="mt-1 max-w-3xl text-sm text-slate-500">Every document stays on the register. Each one sits where the reviewer's latest decision put it. <button type="button" data-go="feedback" class="font-medium text-brand">See every decision and reason</button></p>
       <div class="mt-4 flex flex-wrap gap-2">${tabs}</div>
       <div class="mt-4 overflow-x-auto">
         <table class="w-full text-left">
@@ -1531,8 +1599,37 @@ function showUploadStep(step) {
   if (step === 4) fillUploadSummary(form);
 }
 
+// The latest reviewer decision on this document, if any.
+function latestReview(item) {
+  return (ws().reviews || []).filter((row) => row.evidenceId === item.id)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
+}
+
+const DECISION = {
+  accepted: ['Accepted', 'bg-emerald-50 text-emerald-800'],
+  verified: ['Fix verified', 'bg-emerald-50 text-emerald-800'],
+  rejected: ['Rejected', 'bg-rose-50 text-rose-700'],
+  'sent-back': ['Fix sent back', 'bg-rose-50 text-rose-700'],
+  edited: ['Result edited', 'bg-amber-50 text-amber-900'],
+  requested: ['More evidence requested', 'bg-amber-50 text-amber-800'],
+};
+
+function decisionPill(row) {
+  const [label, tone] = DECISION[row.decision] || [row.decision, 'bg-slate-100 text-slate-600'];
+  return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span>`;
+}
+
 function fileStatus(item) {
   if (item.rejected) return ['Rejected', 'bg-rose-50 text-rose-700'];
+  const decided = latestReview(item);
+  if (decided) {
+    if (decided.decision === 'accepted' || decided.decision === 'verified') return ['Accepted', 'bg-emerald-50 text-emerald-800'];
+    if (decided.decision === 'rejected' || decided.decision === 'sent-back') return ['Rejected', 'bg-rose-50 text-rose-700'];
+    if (decided.decision === 'requested') return ['More evidence requested', 'bg-amber-50 text-amber-800'];
+    if (decided.status === 'MET') return ['Met', 'bg-emerald-50 text-emerald-800'];
+    if (decided.status === 'NOT MET') return ['Not met', 'bg-rose-50 text-rose-800'];
+    return ['Partially met', 'bg-amber-50 text-amber-900'];
+  }
   const control = controlById(item.controlIds?.[0]);
   const review = control?.decision?.review;
   if (review === 'requested') return ['More evidence requested', 'bg-amber-50 text-amber-800'];
@@ -1621,7 +1718,7 @@ function renderEvidenceDetail(item) {
     ['reading', 'AI Assessment'],
     ['history', 'Review History'],
     ['attachments', 'Attachments'],
-    ['comments', 'Comments'],
+    ['comments', 'Reviewer decisions'],
   ].map(([id, label]) => `<button type="button" data-evidence-tab="${id}" class="border-b-2 px-3 py-2 text-sm font-medium ${tab === id ? 'border-[#1860C8] text-[#1860C8]' : 'border-transparent text-slate-500'}">${label}</button>`).join('');
   const controls = item.controlIds.map((id) => controlById(id)).filter(Boolean);
   const primary = controls[0];
@@ -1645,8 +1742,10 @@ function renderEvidenceDetail(item) {
   } else if (tab === 'attachments') {
     body = `<section class="rounded-2xl border border-line bg-white p-5"><p class="text-sm font-medium">${escapeHtml(item.name)}</p><p class="mt-2 text-sm text-slate-600">${escapeHtml(item.location ? `${item.source} · ${item.location}` : (item.source || 'Recorded in the register'))}</p><p class="mt-2 break-all text-xs text-slate-500">${escapeHtml(item.hash || 'No fingerprint')}</p>${documentBody(item)}<p class="mt-3 text-xs text-slate-500">${STORAGE_LINE}</p></section>`;
   } else if (tab === 'comments') {
-    const notes = controls.map((control) => control.decision?.comment).filter(Boolean);
-    body = `<section class="rounded-2xl border border-line bg-white px-5"><ul>${notes.map((note) => `<li class="border-t border-line py-3 text-sm first:border-t-0">${escapeHtml(note)}</li>`).join('') || '<li class="py-4 text-sm text-slate-500">No comments yet.</li>'}</ul></section>`;
+    const decided = (ws().reviews || []).filter((row) => row.evidenceId === item.id);
+    body = decided.length
+      ? `<div class="grid gap-3">${decided.map((row) => feedbackCard(row, true)).join('')}</div>`
+      : '<section class="rounded-2xl border border-line bg-white p-5 text-sm text-slate-500">No reviewer decision on this document yet.</section>';
   } else {
     const facts = [
       ['Title', item.name],
@@ -2104,6 +2203,7 @@ const PAGES = {
   history: renderHistory,
   upload: renderUpload,
   profile: renderProfile,
+  feedback: renderFeedback,
 };
 
 function navButton(id, label, glyph, mobile) {
@@ -2973,6 +3073,11 @@ pane.addEventListener('input', (event) => {
 });
 
 pane.addEventListener('change', (event) => {
+  if (event.target.dataset.feedbackFilter) {
+    state[event.target.dataset.feedbackFilter] = event.target.value;
+    render();
+    return;
+  }
   if (event.target.dataset.evidenceFilter) {
     state[event.target.dataset.evidenceFilter] = event.target.value;
     state.evidencePage = 1;
