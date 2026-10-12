@@ -886,7 +886,7 @@ function renderAdminHome() {
     }).join('');
     return `<tr class="border-t border-line align-top">
       <td class="px-4 py-3 text-sm font-medium">${escapeHtml(row.name)}<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(row.email || '')}</span></td>
-      <td class="px-4 py-3 text-sm">${escapeHtml(row.title || row.role || '')}</td>
+      <td class="px-4 py-3 text-sm">${escapeHtml(jobTitle(row) || 'Not set')}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(row.unit || 'Not set')}</td>
       <td class="px-4 py-3 text-sm">${escapeHtml(manager)}</td>
       <td class="px-4 py-3 text-sm capitalize">${escapeHtml(row.employmentType || 'employee')}</td>
@@ -976,7 +976,7 @@ function renderAdminHome() {
         <label class="text-sm font-medium">Person
           <select id="place-person" name="personId" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">${people().map((row) => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join('')}</select>
         </label>
-        ${field('Job title', 'job', first.title || first.role)}
+        ${field('Job title', 'job', jobTitle(first))}
         <label class="text-sm font-medium">Department
           <select name="unit" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal">${unitOptions(first.unit)}</select>
         </label>
@@ -1695,7 +1695,7 @@ function renderProfile() {
     ['Full name', who.name],
     ['Email', who.email || 'Not set'],
     ['Department', who.unit || 'Not set'],
-    ['Job title', who.title || who.role || 'Not set'],
+    ['Job title', jobTitle(who) || 'Not set'],
     ['Manager', manager],
     ['Employment type', who.employmentType || 'employee'],
   ];
@@ -1718,7 +1718,7 @@ function renderProfile() {
           <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#E7EEF8] text-base font-semibold text-[#1860C8]">${escapeHtml(initials(who.name))}</span>
           <div>
             <p class="text-lg font-semibold">${escapeHtml(who.name)}</p>
-            <p class="text-sm text-slate-500">${escapeHtml(who.title || who.role || 'User')}</p>
+            <p class="text-sm text-slate-500">${escapeHtml(signedInAs(who))}</p>
           </div>
         </div>
         <div class="mt-4 flex gap-1 overflow-x-auto border-b border-line">${tabs}</div>
@@ -2116,6 +2116,19 @@ function navButton(id, label, glyph, mobile) {
   return `<button type="button" data-page="${id}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm ${on ? 'bg-[#1860C8] text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}">${glyph}<span class="flex-1">${label}</span>${badge ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${badge}</span>` : ''}</button>`;
 }
 
+// "Staff" is what the register stores when nobody gave a job title.
+function jobTitle(row) {
+  const job = String(row?.title || row?.role || '').trim();
+  return job && job !== 'Staff' ? job : '';
+}
+
+// Under a name, show the profile this page is signed in as, then the job title if one is set.
+function signedInAs(who) {
+  const view = VIEW_NAME[state.profile] || 'User';
+  const job = jobTitle(who);
+  return job ? `${view} · ${job}` : view;
+}
+
 function personOptions(rows) {
   return rows.map((row) => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join('');
 }
@@ -2133,12 +2146,12 @@ function paintChrome() {
   if (sidePerson) sidePerson.textContent = named || 'Evidence Register';
   const sideMark = document.getElementById('side-mark');
   if (sideMark) sideMark.textContent = named ? initials(named) : 'ER';
-  document.getElementById('profile-note').textContent = who.title || who.role || PROFILE_NOTE[state.profile] || '';
+  document.getElementById('profile-note').textContent = signedInAs(who);
   document.getElementById('signed-name').textContent = named;
   const headerMark = document.getElementById('header-mark');
   if (headerMark) headerMark.textContent = named ? initials(named) : 'ER';
   const headerRole = document.getElementById('header-role');
-  if (headerRole) headerRole.textContent = who.title || who.role || viewName;
+  if (headerRole) headerRole.textContent = signedInAs(who);
   const helloTitle = document.getElementById('hello-title');
   if (helloTitle) helloTitle.textContent = named ? greeting() : 'Evidence Register';
   const helloBand = document.getElementById('hello-band');
@@ -2933,7 +2946,7 @@ pane.addEventListener('change', (event) => {
   if (event.target.id === 'place-person') {
     const row = person(event.target.value);
     const form = event.target.form;
-    if (form.elements.job) form.elements.job.value = row.title || row.role || '';
+    if (form.elements.job) form.elements.job.value = jobTitle(row);
     if (form.elements.unit) form.elements.unit.value = row.unit || '';
     if (form.elements.employmentType) form.elements.employmentType.value = row.employmentType || 'employee';
     const manager = form.elements.managerId;
