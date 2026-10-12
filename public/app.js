@@ -2129,6 +2129,47 @@ function signedInAs(who) {
   return job ? `${view} · ${job}` : view;
 }
 
+// Owner and reviewer pickers on the requirement forms. Owners come grouped by
+// profile with a user picked first; the reviewer is a reviewer who is not the owner.
+function ownerOptions(selected) {
+  const rows = people();
+  if (!rows.length) return '<option value="" disabled selected>No one is on this organisation yet</option>';
+  const groups = [
+    ['Users', rows.filter((row) => holds(row, 'uploader'))],
+    ['Reviewers', rows.filter((row) => !holds(row, 'uploader') && holds(row, 'reviewer'))],
+    ['Admins', rows.filter((row) => !holds(row, 'uploader') && !holds(row, 'reviewer'))],
+  ].filter(([, list]) => list.length);
+  return groups.map(([label, list]) => `<optgroup label="${label}">${list.map((row) => `<option value="${row.id}" ${row.id === selected ? 'selected' : ''}>${escapeHtml(row.name)}</option>`).join('')}</optgroup>`).join('');
+}
+
+function reviewerOptions(ownerId, selected) {
+  const rows = reviewers();
+  if (!rows.length) {
+    return '<option value="" disabled selected>No reviewer yet. Invite one, or give someone the reviewer profile on People.</option>';
+  }
+  const pick = rows.some((row) => row.id === selected && row.id !== ownerId)
+    ? selected
+    : (rows.find((row) => row.id !== ownerId) || rows[0]).id;
+  return rows.map((row) => {
+    const note = row.id === ownerId ? ' (owner, cannot review their own file)' : '';
+    return `<option value="${row.id}" ${row.id === pick ? 'selected' : ''}>${escapeHtml(row.name)}${note}</option>`;
+  }).join('');
+}
+
+function fillAssignment(ownerSelect, reviewerSelect) {
+  if (!ownerSelect || !reviewerSelect) return;
+  const firstUser = people().find((row) => holds(row, 'uploader')) || people()[0];
+  const owner = people().some((row) => row.id === ownerSelect.value) ? ownerSelect.value : firstUser?.id || '';
+  ownerSelect.innerHTML = ownerOptions(owner);
+  reviewerSelect.innerHTML = reviewerOptions(owner, reviewerSelect.value);
+  if (!ownerSelect.dataset.paired) {
+    ownerSelect.dataset.paired = '1';
+    ownerSelect.addEventListener('change', () => {
+      reviewerSelect.innerHTML = reviewerOptions(ownerSelect.value, reviewerSelect.value);
+    });
+  }
+}
+
 function personOptions(rows) {
   return rows.map((row) => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join('');
 }
@@ -2177,10 +2218,10 @@ function paintChrome() {
     evidenceSelect.innerHTML = uploadControlList().map(controlChoice).join('');
     if (current && [...evidenceSelect.options].some((option) => option.value === current)) evidenceSelect.value = current;
   }
-  if (ownerSelect && data) ownerSelect.innerHTML = personOptions(data.people);
-  if (reviewerSelect && data) reviewerSelect.innerHTML = personOptions(reviewers());
-  if (templateOwner && data) templateOwner.innerHTML = personOptions(data.people);
-  if (templateReviewer && data) templateReviewer.innerHTML = personOptions(reviewers());
+  if (data) {
+    fillAssignment(ownerSelect, reviewerSelect);
+    fillAssignment(templateOwner, templateReviewer);
+  }
   paintNotes();
 }
 
