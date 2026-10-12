@@ -88,13 +88,13 @@
 
         <main class="min-h-0 flex-1 overflow-y-auto">
           <div class="mx-auto max-w-6xl px-4 py-6 md:px-8">
-            <div id="flash" class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" hidden>
+            <div id="flash" class="mb-5 rounded-xl border border-slate-200 bg-slate-100 p-4 text-sm text-slate-800" hidden>
               <div class="flex items-start gap-3">
                 <div class="min-w-0 flex-1">
                   <p id="flash-text"></p>
-                  <p id="flash-link" class="mt-2 break-all font-mono text-xs text-emerald-800" hidden></p>
+                  <p id="flash-link" class="mt-2 break-all font-mono text-xs text-slate-600" hidden></p>
                 </div>
-                <button id="flash-close" type="button" class="text-emerald-700 hover:text-emerald-900" aria-label="Dismiss">✕</button>
+                <button id="flash-close" type="button" class="text-slate-500 hover:text-slate-800" aria-label="Dismiss">✕</button>
               </div>
             </div>
             <div id="error" class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" hidden></div>
@@ -187,7 +187,7 @@
       ];
 
       const STATUS = {
-        active: { label: 'Active', tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
+        active: { label: 'Active', tone: 'bg-slate-100 text-slate-700 ring-slate-300' },
         awaiting: { label: 'Awaiting admin', tone: 'bg-amber-50 text-amber-800 ring-amber-200' },
         'no-admin': { label: 'No admin', tone: 'bg-rose-50 text-rose-800 ring-rose-200' },
       };
@@ -621,7 +621,7 @@ npm run operator -- name@data-sentinels.com --reset</pre>
             const org = orgById(row.organisationId);
             const waited = daysSince(row.invitedAt);
             const status = row.kind === 'joined'
-              ? (row.hasLogin ? pill('Joined', 'bg-emerald-50 text-emerald-800 ring-emerald-200') : pill('No sign-in', 'bg-slate-100 text-slate-700 ring-slate-200'))
+              ? (row.hasLogin ? pill('Joined', 'bg-slate-100 text-slate-700 ring-slate-300') : pill('No sign-in', 'bg-white text-slate-500 ring-slate-200'))
               : pill(waited >= 7 ? `Waiting ${waited} days` : 'Invitation waiting', 'bg-amber-50 text-amber-800 ring-amber-200');
             const action = row.kind === 'pending'
               ? `<button type="button" data-resend="${text(row.id)}" data-resend-org="${text(row.organisationId)}" class="control text-xs font-medium hover:bg-mist">Resend</button>`
@@ -656,7 +656,7 @@ npm run operator -- name@data-sentinels.com --reset</pre>
               && daysSince(row.at) <= limit
               && matches(f.q, row.who, orgName(row.org), row.text))
             .sort((a, b) => String(b.at).localeCompare(String(a.at)));
-          const tone = { opened: 'bg-brand', invited: 'bg-amber-500', joined: 'bg-emerald-500' };
+          const tone = { opened: 'bg-brand', invited: 'bg-amber-500', joined: 'bg-slate-500' };
           const label = { opened: 'Opened', invited: 'Invited', joined: 'Joined' };
           $('result-count').textContent = `${rows.length} ${rows.length === 1 ? 'event' : 'events'}`;
           $('results').innerHTML = rows.length ? rows.map((row) => `
