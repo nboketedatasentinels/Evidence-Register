@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Organisations — Evidence Register</title>
+    <link rel="icon" href="/data-sentinels-logo.png" type="image/png" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['DM Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+            colors: { ink: '#121417', navy: '#071E36', brand: '#1860C8', line: '#E6EAF0', mist: '#F4F6F8' },
+          },
+        },
+      };
+    </script>
+    <style>[hidden] { display: none !important; }</style>
+  </head>
+  <body class="min-h-screen bg-mist font-sans text-ink">
+    <header class="bg-navy px-4 py-4 text-white sm:px-8">
+      <div class="mx-auto flex max-w-5xl items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <img src="/data-sentinels-logo.png" alt="" class="h-8 w-8 rounded bg-white p-1" />
+          <div>
+            <p class="text-sm font-semibold">Evidence Register</p>
+            <p class="text-xs text-slate-300">Platform operator</p>
+          </div>
+        </div>
+        <button id="signout" type="button" class="rounded-md border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
+      <section id="signin" class="mx-auto max-w-sm rounded-xl border border-line bg-white p-6">
+        <h1 class="text-lg font-semibold">Sign in</h1>
+        <p class="mt-1 text-sm text-slate-500">For Data Sentinels operators. Client staff sign in on their own page.</p>
+        <form id="signin-form" class="mt-5 space-y-3">
+          <label class="block text-sm font-medium">Email
+            <input name="email" type="email" required autocomplete="username" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+          </label>
+          <label class="block text-sm font-medium">Password
+            <input name="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+          </label>
+          <p id="signin-error" class="text-sm text-red-700" hidden></p>
+          <button class="w-full rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-blue-700">Sign in</button>
+        </form>
+      </section>
+
+      <section id="console" hidden>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-semibold">Organisations</h1>
+            <p id="who" class="text-sm text-slate-500"></p>
+          </div>
+        </div>
+
+        <div id="flash" class="mt-5 rounded-lg border border-line bg-white p-4 text-sm" hidden>
+          <p id="flash-text"></p>
+          <p id="flash-link" class="mt-2 break-all font-mono text-xs text-slate-600" hidden></p>
+        </div>
+
+        <div class="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
+          <table class="w-full min-w-[560px] text-left text-sm">
+            <thead class="border-b border-line bg-mist text-xs uppercase tracking-wide text-slate-500">
+              <tr><th class="px-4 py-3">Organisation</th><th class="px-4 py-3">ID</th><th class="px-4 py-3">Country</th><th class="px-4 py-3">People</th><th class="px-4 py-3">Opened</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+
+        <form id="create-form" class="mt-8 rounded-xl border border-line bg-white p-6">
+          <h2 class="font-semibold">Open an organisation</h2>
+          <p class="mt-1 text-sm text-slate-500">The first admin gets an email with a link to join. They fill in the organisation details after signing in.</p>
+          <div class="mt-4 grid gap-3 sm:grid-cols-3">
+            <label class="block text-sm font-medium">Organisation name
+              <input name="name" required maxlength="120" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+            </label>
+            <label class="block text-sm font-medium">First admin's name
+              <input name="adminName" required maxlength="80" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+            </label>
+            <label class="block text-sm font-medium">First admin's email
+              <input name="adminEmail" type="email" required maxlength="120" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+            </label>
+          </div>
+          <p id="create-error" class="mt-3 text-sm text-red-700" hidden></p>
+          <button class="mt-4 rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-blue-700">Open organisation</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const KEY = 'operator-token';
+      const $ = (id) => document.getElementById(id);
+
+      function token() {
+        try { return sessionStorage.getItem(KEY) || ''; } catch { return ''; }
+      }
+
+      function remember(value) {
+        try {
+          if (value) sessionStorage.setItem(KEY, value);
+          else sessionStorage.removeItem(KEY);
+        } catch {}
+      }
+
+      function text(value) {
+        const span = document.createElement('span');
+        span.textContent = value;
+        return span.innerHTML;
+      }
+
+      async function call(url, options = {}) {
+        const response = await fetch(url, {
+          ...options,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          remember('');
+          show();
+        }
+        if (!response.ok) throw new Error(payload.error || 'That did not work.');
+        return payload;
+      }
+
+      function showError(id, message) {
+        $(id).textContent = message;
+        $(id).hidden = !message;
+      }
+
+      async function show() {
+        const signedIn = Boolean(token());
+        $('signin').hidden = signedIn;
+        $('console').hidden = !signedIn;
+        $('signout').hidden = !signedIn;
+        if (!signedIn) return;
+        try { $('who').textContent = sessionStorage.getItem('operator-email') || ''; } catch {}
+        try {
+          const { organisations } = await call('/api/operator/organisations');
+          $('rows').innerHTML = organisations.length
+            ? organisations.map((org) => `
+              <tr class="border-b border-line last:border-0">
+                <td class="px-4 py-3 font-medium">${text(org.name || org.legalName || 'Not named yet')}</td>
+                <td class="px-4 py-3 font-mono text-xs text-slate-500">${text(org.id)}</td>
+                <td class="px-4 py-3">${text(org.country || '—')}</td>
+                <td class="px-4 py-3">${org.people}</td>
+                <td class="px-4 py-3 text-slate-500">${text(org.createdAt ? org.createdAt.slice(0, 10) : '—')}</td>
+              </tr>`).join('')
+            : '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">No organisations yet.</td></tr>';
+        } catch (error) {
+          if (token()) showError('create-error', error.message);
+        }
+      }
+
+      $('signin-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        showError('signin-error', '');
+        const data = new FormData(event.target);
+        try {
+          const response = await fetch('/api/operator/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: data.get('email'), password: data.get('password') }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || 'Sign in did not work.');
+          remember(payload.token);
+          try { sessionStorage.setItem('operator-email', payload.email); } catch {}
+          event.target.reset();
+          show();
+        } catch (error) {
+          showError('signin-error', error.message);
+        }
+      });
+
+      $('create-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        showError('create-error', '');
+        const data = new FormData(event.target);
+        try {
+          const result = await call('/api/operator/organisations', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: data.get('name'),
+              adminName: data.get('adminName'),
+              adminEmail: data.get('adminEmail'),
+            }),
+          });
+          $('flash').hidden = false;
+          $('flash-text').textContent = result.flash;
+          $('flash-link').textContent = result.inviteUrl;
+          $('flash-link').hidden = result.emailed;
+          event.target.reset();
+          show();
+        } catch (error) {
+          showError('create-error', error.message);
+        }
+      });
+
+      $('signout').addEventListener('click', async () => {
+        await call('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        remember('');
+        show();
+      });
+
+      show();
+    </script>
+  </body>
+</html>
