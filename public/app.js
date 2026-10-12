@@ -2241,17 +2241,18 @@ function showAuth(message) {
     ? 'This is only for people an admin has added. A reset link is sent to that work email.'
     : state.authMode === 'reset'
       ? 'Choose a new password for the account an admin added. The link expires in one hour.'
-      : AUTH_COPY[profile] || '';
+      : state.authMode === 'signin'
+        ? 'Sign in with the account you created from your invitation. New accounts start from an invitation email.'
+        : AUTH_COPY[profile] || '';
   document.getElementById('signup-form').hidden = state.authMode !== 'signup';
   document.getElementById('signin-form').hidden = state.authMode !== 'signin';
   document.getElementById('forgot-form').hidden = state.authMode !== 'forgot';
   document.getElementById('reset-form').hidden = state.authMode !== 'reset' || !state.resetToken;
-  document.getElementById('auth-switch').hidden = false;
+  // Accounts are only created from an invitation link, so sign-in offers no sign-up.
+  document.getElementById('auth-switch').hidden = state.authMode === 'signin';
   document.getElementById('auth-switch').textContent = state.authMode === 'signup'
     ? 'Already have an account? Sign in'
-    : state.authMode === 'signin'
-      ? 'Need an account? Create one'
-      : 'Back to sign in';
+    : 'Back to sign in';
   document.getElementById('signup-submit').textContent = 'Create account';
   document.getElementById('password-label').textContent = 'Password';
   document.getElementById('confirm-field').hidden = state.authMode !== 'signup';
@@ -3302,7 +3303,7 @@ document.getElementById('reset-form').addEventListener('submit', (event) => {
 });
 
 document.getElementById('auth-switch').addEventListener('click', () => {
-  state.authMode = state.authMode === 'signup' ? 'signin' : state.authMode === 'signin' ? 'signup' : 'signin';
+  state.authMode = 'signin';
   state.resetToken = '';
   showAuth();
 });

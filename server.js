@@ -134,6 +134,20 @@ app.get('/api/operator/organisations', (req, res) => loopResult(res, async () =>
 }));
 app.post('/api/operator/organisations', (req, res) => loopResult(res, async () => loop.createOrganisation(await operatorBody(req))));
 
+function operatorAction(work) {
+  return (req, res) => loopResult(res, async () => {
+    const body = { ...(await operatorBody(req)), organisationId: clean(req.params.id, 40) };
+    return db.withOrganisation(body.organisationId, () => work(body, req));
+  });
+}
+
+app.get('/api/operator/organisations/:id', operatorAction((body) => loop.operatorOrganisation(body.organisationId)));
+app.post('/api/operator/organisations/:id/admins', operatorAction((body) => loop.operatorAddAdmin(body)));
+app.post('/api/operator/organisations/:id/invitations/:invitationId/resend', operatorAction((body, req) => loop.operatorResendInvite({
+  ...body,
+  invitationId: clean(req.params.invitationId, 40),
+})));
+
 db.init().then(() => {
   app.listen(PORT, () => {
     console.log(`Evidence Register T4L running at http://localhost:${PORT}`);

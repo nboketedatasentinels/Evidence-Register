@@ -19,11 +19,11 @@ Open http://localhost:3000.
 
 The register holds many organisations in one Supabase project. Every row carries `organisation_id`, and the server takes the organisation from the signed-in session, never from the request.
 
-- **Self-serve:** opening `/admin` without an invitation starts a new organisation, with that person as its first admin.
-- **Platform operator:** Data Sentinels staff sign in at `/operator` to list organisations and open one for a client. The client's first admin gets an invitation email.
-- **Everyone else** joins through an invitation from their organisation's admin. One email belongs to one organisation.
+- **Data Sentinels (super admin)** signs in at `/operator`, opens an organisation for each client, and invites its admins. The dashboard shows each organisation's admins, resends admin invitations, and adds more admins.
+- **Each organisation's admins** invite their own users and reviewers and set their own requirements. They see only their organisation.
+- **Nobody signs up without an invitation.** `/admin`, `/reviewer` and `/user` only sign in or accept an invitation link. One email belongs to one organisation.
 
-Create an operator account:
+Create a super admin account:
 
 ```bash
 npm run operator -- name@data-sentinels.com
