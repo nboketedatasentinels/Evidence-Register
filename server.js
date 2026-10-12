@@ -128,6 +128,10 @@ app.post('/api/loop/invite-pen', action((body) => loop.setInvitePen(body)));
 app.post('/api/loop/acknowledge', action((body) => loop.acknowledge(body)));
 
 app.post('/api/operator/login', (req, res) => loopResult(res, () => loop.operatorLogin(req.body)));
+app.get('/api/operator/overview', (req, res) => loopResult(res, async () => {
+  await operatorBody(req);
+  return loop.operatorOverview();
+}));
 app.get('/api/operator/organisations', (req, res) => loopResult(res, async () => {
   await operatorBody(req);
   return loop.operatorOrganisations();

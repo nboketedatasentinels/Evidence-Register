@@ -17,134 +17,280 @@
         },
       };
     </script>
-    <style>[hidden] { display: none !important; }</style>
+    <style>
+      [hidden] { display: none !important; }
+      dialog::backdrop { background: rgba(7, 30, 54, 0.45); }
+      dialog.drawer { margin: 0 0 0 auto; height: 100vh; max-height: 100vh; width: min(560px, 100vw); max-width: 100vw; border: 0; padding: 0; }
+      dialog.modal { border: 0; padding: 0; border-radius: 16px; width: min(560px, calc(100vw - 32px)); }
+      .field { margin-top: 0.25rem; width: 100%; border-radius: 0.5rem; border: 1px solid #E6EAF0; background: #fff; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+      .field:focus, .control:focus { outline: 2px solid #1860C8; outline-offset: 1px; }
+      .control { border-radius: 0.5rem; border: 1px solid #E6EAF0; background: #fff; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+    </style>
   </head>
-  <body class="min-h-screen bg-mist font-sans text-ink">
-    <header class="bg-navy px-4 py-4 text-white sm:px-8">
-      <div class="mx-auto flex max-w-5xl items-center justify-between gap-4">
+  <body class="h-screen overflow-hidden bg-mist font-sans text-ink antialiased">
+    <!-- Sign in -->
+    <section id="signin" class="flex h-full items-center justify-center overflow-y-auto px-4 py-16">
+      <div class="w-full max-w-sm rounded-2xl border border-line bg-white p-7">
         <div class="flex items-center gap-3">
-          <img src="/data-sentinels-logo.png" alt="" class="h-8 w-8 rounded bg-white p-1" />
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-semibold text-white">ER</span>
           <div>
             <p class="text-sm font-semibold">Evidence Register</p>
-            <p class="text-xs text-slate-300">Super admin · Data Sentinels</p>
+            <p class="text-xs text-slate-500">Super admin · Data Sentinels</p>
           </div>
         </div>
-        <button id="signout" type="button" class="rounded-md border border-white/30 px-3 py-1.5 text-sm hover:bg-white/10" hidden>Sign out</button>
-      </div>
-    </header>
-
-    <main class="mx-auto max-w-5xl px-4 py-8 sm:px-8">
-      <section id="signin" class="mx-auto max-w-sm rounded-xl border border-line bg-white p-6">
-        <h1 class="text-lg font-semibold">Sign in</h1>
-        <p class="mt-1 text-sm text-slate-500">For Data Sentinels operators. Client staff sign in on their own page.</p>
+        <h1 class="mt-6 text-xl font-semibold">Sign in</h1>
+        <p class="mt-1 text-sm text-slate-500">For Data Sentinels staff. Client staff sign in on their own page.</p>
         <form id="signin-form" class="mt-5 space-y-3">
           <label class="block text-sm font-medium">Email
-            <input name="email" type="email" required autocomplete="username" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+            <input name="email" type="email" required autocomplete="username" class="field" />
           </label>
           <label class="block text-sm font-medium">Password
-            <input name="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+            <input name="password" type="password" required autocomplete="current-password" class="field" />
           </label>
-          <p id="signin-error" class="text-sm text-red-700" hidden></p>
-          <button class="w-full rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-blue-700">Sign in</button>
+          <p id="signin-error" class="text-sm text-rose-700" hidden></p>
+          <button class="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">Sign in</button>
         </form>
-      </section>
+      </div>
+    </section>
 
-      <section id="console" hidden>
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 class="text-xl font-semibold">Organisations</h1>
-            <p id="who" class="text-sm text-slate-500"></p>
-          </div>
+    <!-- Dashboard -->
+    <div id="shell" class="flex h-full" hidden>
+      <aside class="hidden w-[248px] shrink-0 flex-col bg-navy text-white md:flex">
+        <div class="flex items-center gap-3 px-5 pb-2 pt-6">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-sm font-semibold">ER</span>
+          <span>
+            <p class="text-[15px] font-semibold tracking-tight">Evidence Register</p>
+            <p class="text-xs text-white/60">Super admin</p>
+          </span>
         </div>
-
-        <div id="flash" class="mt-5 rounded-lg border border-line bg-white p-4 text-sm" hidden>
-          <p id="flash-text"></p>
-          <p id="flash-link" class="mt-2 break-all font-mono text-xs text-slate-600" hidden></p>
+        <nav id="side-nav" class="mt-6 flex flex-1 flex-col gap-1 px-3" aria-label="Sections"></nav>
+        <div class="mt-auto flex items-center gap-3 border-t border-white/10 px-4 py-4">
+          <span id="side-mark" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">DS</span>
+          <span class="min-w-0">
+            <p id="side-email" class="truncate text-sm font-medium"></p>
+            <p class="truncate text-[11px] text-white/50">Data Sentinels</p>
+          </span>
         </div>
+      </aside>
 
-        <div class="mt-6 overflow-x-auto rounded-xl border border-line bg-white">
-          <table class="w-full min-w-[560px] text-left text-sm">
-            <thead class="border-b border-line bg-mist text-xs uppercase tracking-wide text-slate-500">
-              <tr><th class="px-4 py-3">Organisation</th><th class="px-4 py-3">ID</th><th class="px-4 py-3">Country</th><th class="px-4 py-3">People</th><th class="px-4 py-3">Opened</th></tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header class="border-b border-line bg-white">
+          <div class="flex items-center gap-3 px-4 py-3 md:px-8">
+            <div class="min-w-0 flex-1">
+              <h1 id="page-title" class="truncate text-lg font-semibold tracking-tight"></h1>
+              <p id="page-copy" class="truncate text-xs text-slate-500"></p>
+            </div>
+            <button id="refresh" type="button" class="control hidden text-slate-600 hover:bg-mist sm:inline-flex" title="Reload the figures">Refresh</button>
+            <button id="open-create" type="button" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700">Open organisation</button>
+          </div>
+          <nav id="mobile-nav" class="flex gap-1 overflow-x-auto px-4 pb-3 md:hidden" aria-label="Sections"></nav>
+        </header>
+
+        <main class="min-h-0 flex-1 overflow-y-auto">
+          <div class="mx-auto max-w-6xl px-4 py-6 md:px-8">
+            <div id="flash" class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" hidden>
+              <div class="flex items-start gap-3">
+                <div class="min-w-0 flex-1">
+                  <p id="flash-text"></p>
+                  <p id="flash-link" class="mt-2 break-all font-mono text-xs text-emerald-800" hidden></p>
+                </div>
+                <button id="flash-close" type="button" class="text-emerald-700 hover:text-emerald-900" aria-label="Dismiss">✕</button>
+              </div>
+            </div>
+            <div id="error" class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" hidden></div>
+            <div id="view"></div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Organisation drawer -->
+    <dialog id="drawer" class="drawer">
+      <div class="flex h-full flex-col bg-white">
+        <div class="flex items-start justify-between gap-3 border-b border-line px-6 py-5">
+          <div class="min-w-0">
+            <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Organisation</p>
+            <h2 id="drawer-name" class="mt-1 truncate text-lg font-semibold"></h2>
+            <p id="drawer-meta" class="text-sm text-slate-500"></p>
+          </div>
+          <button id="drawer-close" type="button" class="control hover:bg-mist">Close</button>
         </div>
-        <p class="mt-2 text-xs text-slate-500">Choose an organisation to see its admins, resend an invitation, or add another admin.</p>
-
-        <section id="detail" class="mt-6 rounded-xl border border-line bg-white p-6" hidden>
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 id="detail-name" class="text-lg font-semibold"></h2>
-              <p id="detail-meta" class="text-sm text-slate-500"></p>
-            </div>
-            <button id="detail-close" type="button" class="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-mist">Close</button>
-          </div>
-          <div class="mt-5 grid gap-6 md:grid-cols-2">
-            <div>
-              <h3 class="text-sm font-semibold">Admins</h3>
-              <ul id="detail-admins" class="mt-2 divide-y divide-line text-sm"></ul>
-            </div>
-            <div>
-              <h3 class="text-sm font-semibold">Admin invitations waiting</h3>
-              <ul id="detail-invites" class="mt-2 divide-y divide-line text-sm"></ul>
-            </div>
-          </div>
-          <form id="admin-form" class="mt-6 border-t border-line pt-5">
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div id="drawer-stats" class="grid grid-cols-2 gap-3 sm:grid-cols-4"></div>
+          <p id="drawer-error" class="mt-4 text-sm text-rose-700" hidden></p>
+          <h3 class="mt-6 text-sm font-semibold">Admins</h3>
+          <ul id="drawer-admins" class="mt-2 divide-y divide-line rounded-xl border border-line text-sm"></ul>
+          <h3 class="mt-6 text-sm font-semibold">Admin invitations waiting</h3>
+          <ul id="drawer-invites" class="mt-2 divide-y divide-line rounded-xl border border-line text-sm"></ul>
+          <form id="admin-form" class="mt-6 rounded-xl border border-line p-4">
             <h3 class="text-sm font-semibold">Add an admin</h3>
-            <p class="mt-1 text-sm text-slate-500">They get an email with a link to join this organisation as admin. Admins add their own users and reviewers.</p>
+            <p class="mt-1 text-sm text-slate-500">They get an email with a link to join as admin. Admins add their own users and reviewers and set their requirements.</p>
             <div class="mt-3 grid gap-3 sm:grid-cols-2">
               <label class="block text-sm font-medium">Name
-                <input name="name" required maxlength="80" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+                <input name="name" required maxlength="80" class="field" />
               </label>
               <label class="block text-sm font-medium">Email
-                <input name="email" type="email" required maxlength="120" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
+                <input name="email" type="email" required maxlength="120" class="field" />
               </label>
             </div>
-            <p id="admin-error" class="mt-3 text-sm text-red-700" hidden></p>
-            <button class="mt-4 rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-blue-700">Send admin invitation</button>
+            <button class="mt-4 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Send admin invitation</button>
           </form>
-        </section>
+          <p class="mt-6 text-xs leading-relaxed text-slate-500">Data Sentinels sees counts and onboarding here. Evidence, requirements and history stay with the organisation.</p>
+        </div>
+      </div>
+    </dialog>
 
-        <form id="create-form" class="mt-8 rounded-xl border border-line bg-white p-6">
-          <h2 class="font-semibold">Open an organisation</h2>
-          <p class="mt-1 text-sm text-slate-500">The first admin gets an email with a link to join. They fill in the organisation details, invite their users and reviewers, and set their requirements.</p>
-          <div class="mt-4 grid gap-3 sm:grid-cols-3">
-            <label class="block text-sm font-medium">Organisation name
-              <input name="name" required maxlength="120" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
-            </label>
-            <label class="block text-sm font-medium">First admin's name
-              <input name="adminName" required maxlength="80" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
-            </label>
-            <label class="block text-sm font-medium">First admin's email
-              <input name="adminEmail" type="email" required maxlength="120" class="mt-1 w-full rounded-md border border-line px-3 py-2" />
-            </label>
-          </div>
-          <p id="create-error" class="mt-3 text-sm text-red-700" hidden></p>
-          <button class="mt-4 rounded-md bg-brand px-4 py-2 font-medium text-white hover:bg-blue-700">Open organisation</button>
-        </form>
-      </section>
-    </main>
+    <!-- Open organisation -->
+    <dialog id="create-dialog" class="modal">
+      <form id="create-form" class="bg-white p-6">
+        <h2 class="text-lg font-semibold">Open an organisation</h2>
+        <p class="mt-1 text-sm text-slate-500">The first admin gets an email with a link to join. They fill in the organisation details, invite their users and reviewers, and set their requirements.</p>
+        <div class="mt-5 space-y-3">
+          <label class="block text-sm font-medium">Organisation name
+            <input name="name" required maxlength="120" class="field" />
+          </label>
+          <label class="block text-sm font-medium">First admin's name
+            <input name="adminName" required maxlength="80" class="field" />
+          </label>
+          <label class="block text-sm font-medium">First admin's email
+            <input name="adminEmail" type="email" required maxlength="120" class="field" />
+          </label>
+        </div>
+        <p id="create-error" class="mt-3 text-sm text-rose-700" hidden></p>
+        <div class="mt-6 flex justify-end gap-2">
+          <button id="create-cancel" type="button" class="control hover:bg-mist">Cancel</button>
+          <button class="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Open organisation</button>
+        </div>
+      </form>
+    </dialog>
 
     <script>
       const KEY = 'operator-token';
       const $ = (id) => document.getElementById(id);
 
+      const ICON = {
+        overview: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z"/>',
+        organisations: '<path d="M4 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M14 9h5a1 1 0 0 1 1 1v11M3 21h18M8 8h2M8 12h2M8 16h2"/>',
+        admins: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 11l1.5 1.5L22 9"/>',
+        activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+        operators: '<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+        account: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+      };
+
+      const PAGES = [
+        { id: 'overview', label: 'Overview', copy: 'How client onboarding stands across the platform.' },
+        { id: 'organisations', label: 'Organisations', copy: 'Every client organisation on the register.' },
+        { id: 'admins', label: 'Admins & invitations', copy: 'Client admins who have joined, and admin invitations still waiting.' },
+        { id: 'activity', label: 'Onboarding activity', copy: 'Organisations opened, admins invited, and admins who joined.' },
+        { id: 'operators', label: 'Operators', copy: 'Data Sentinels staff with super admin access.' },
+        { id: 'account', label: 'Account', copy: 'Your super admin sign-in.' },
+      ];
+
+      const STATUS = {
+        active: { label: 'Active', tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
+        awaiting: { label: 'Awaiting admin', tone: 'bg-amber-50 text-amber-800 ring-amber-200' },
+        'no-admin': { label: 'No admin', tone: 'bg-rose-50 text-rose-800 ring-rose-200' },
+      };
+
+      const state = {
+        data: null,
+        page: 'overview',
+        drawerOrg: '',
+        attention: [],
+        filters: {
+          organisations: { q: '', status: '', country: '', setup: '', sort: 'newest' },
+          admins: { q: '', status: '', org: '' },
+          activity: { q: '', type: '', org: '', range: '30' },
+        },
+      };
+
+      // ---------- helpers ----------
+
       function token() {
         try { return sessionStorage.getItem(KEY) || ''; } catch { return ''; }
       }
 
-      function remember(value) {
+      function remember(value, email) {
         try {
-          if (value) sessionStorage.setItem(KEY, value);
-          else sessionStorage.removeItem(KEY);
+          if (value) {
+            sessionStorage.setItem(KEY, value);
+            sessionStorage.setItem('operator-email', email || '');
+          } else {
+            sessionStorage.removeItem(KEY);
+            sessionStorage.removeItem('operator-email');
+          }
         } catch {}
       }
 
+      function operatorEmail() {
+        try { return sessionStorage.getItem('operator-email') || ''; } catch { return ''; }
+      }
+
       function text(value) {
-        const span = document.createElement('span');
-        span.textContent = value;
-        return span.innerHTML;
+        return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      function day(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+
+      function daysSince(iso) {
+        if (!iso) return Infinity;
+        return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+      }
+
+      function ago(iso) {
+        if (!iso) return 'Never';
+        const days = daysSince(iso);
+        if (days <= 0) return 'Today';
+        if (days === 1) return 'Yesterday';
+        if (days < 30) return `${days} days ago`;
+        return day(iso);
+      }
+
+      function orgName(org) {
+        return org?.name || org?.legalName || 'Not named yet';
+      }
+
+      function orgById(id) {
+        return state.data?.organisations.find((row) => row.id === id) || null;
+      }
+
+      function badge(status) {
+        const s = STATUS[status];
+        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${s.tone}">${s.label}</span>`;
+      }
+
+      function pill(label, tone) {
+        return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${tone}">${text(label)}</span>`;
+      }
+
+      function matches(q, ...fields) {
+        const needle = q.trim().toLowerCase();
+        if (!needle) return true;
+        return fields.some((field) => String(field || '').toLowerCase().includes(needle));
+      }
+
+      function options(pairs, current) {
+        return pairs.map(([value, label]) => `<option value="${text(value)}" ${value === current ? 'selected' : ''}>${text(label)}</option>`).join('');
+      }
+
+      function orgOptions(current) {
+        const rows = [...(state.data?.organisations || [])].sort((a, b) => orgName(a).localeCompare(orgName(b)));
+        return options([['', 'All organisations'], ...rows.map((row) => [row.id, orgName(row)])], current);
+      }
+
+      function showError(message) {
+        $('error').textContent = message || '';
+        $('error').hidden = !message;
+      }
+
+      function flash(result) {
+        $('flash').hidden = false;
+        $('flash-text').textContent = result.flash || '';
+        $('flash-link').textContent = result.inviteUrl || '';
+        $('flash-link').hidden = result.emailed !== false || !result.inviteUrl;
       }
 
       async function call(url, options = {}) {
@@ -155,123 +301,538 @@
         const payload = await response.json().catch(() => ({}));
         if (response.status === 401) {
           remember('');
-          show();
+          paintShell();
         }
         if (!response.ok) throw new Error(payload.error || 'That did not work.');
         return payload;
       }
 
-      function showError(id, message) {
-        $(id).textContent = message;
-        $(id).hidden = !message;
+      // ---------- data ----------
+
+      async function load() {
+        try {
+          state.data = await call('/api/operator/overview');
+          showError('');
+        } catch (error) {
+          showError(error.message);
+        }
+        render();
       }
 
-      async function show() {
+      function attention() {
+        const data = state.data;
+        if (!data) return [];
+        const items = [];
+        data.organisations.forEach((org) => {
+          if (org.status === 'no-admin') {
+            items.push({ level: 3, org, text: `${orgName(org)} has no admin and no invitation waiting.`, action: 'Add admin', kind: 'open' });
+          }
+          if (org.status === 'active' && !org.profileComplete) {
+            items.push({ level: 1, org, text: `${orgName(org)} has not filled in its name, legal name and country.`, action: 'View', kind: 'open' });
+          }
+          if (org.status === 'active' && !org.controls) {
+            items.push({ level: 1, org, text: `${orgName(org)} has not set any requirements yet.`, action: 'View', kind: 'open' });
+          }
+        });
+        data.invitations.filter((row) => row.status === 'pending').forEach((invite) => {
+          const waited = daysSince(invite.invitedAt);
+          if (waited >= 7) {
+            const org = orgById(invite.organisationId);
+            items.push({ level: 2, org, invite, text: `${invite.name || invite.email} has not accepted the admin invitation to ${orgName(org)} (${waited} days).`, action: 'Resend', kind: 'resend' });
+          }
+        });
+        return items.sort((a, b) => b.level - a.level);
+      }
+
+      // ---------- chrome ----------
+
+      function navButton(page, mobile) {
+        const on = state.page === page.id;
+        const count = page.id === 'admins'
+          ? (state.data?.invitations || []).filter((row) => row.status === 'pending').length
+          : page.id === 'overview' ? attention().length : 0;
+        if (mobile) {
+          return `<a href="#${page.id}" class="whitespace-nowrap rounded-full px-3 py-1.5 text-sm ${on ? 'bg-navy text-white' : 'text-slate-600'}">${page.label}</a>`;
+        }
+        return `<a href="#${page.id}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${on ? 'bg-brand text-white shadow-sm' : 'text-white/70 hover:bg-white/5 hover:text-white'}" ${on ? 'aria-current="page"' : ''}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[page.id]}</svg>
+          <span class="flex-1">${page.label}</span>${count ? `<span class="rounded-full bg-white/20 px-1.5 text-[11px]">${count}</span>` : ''}</a>`;
+      }
+
+      function paintShell() {
         const signedIn = Boolean(token());
         $('signin').hidden = signedIn;
-        $('console').hidden = !signedIn;
-        $('signout').hidden = !signedIn;
+        $('shell').hidden = !signedIn;
         if (!signedIn) return;
-        try { $('who').textContent = sessionStorage.getItem('operator-email') || ''; } catch {}
-        try {
-          const { organisations } = await call('/api/operator/organisations');
-          $('rows').innerHTML = organisations.length
-            ? organisations.map((org) => `
-              <tr class="cursor-pointer border-b border-line last:border-0 hover:bg-mist" data-org="${text(org.id)}">
-                <td class="px-4 py-3 font-medium text-brand">${text(org.name || org.legalName || 'Not named yet')}</td>
-                <td class="px-4 py-3 font-mono text-xs text-slate-500">${text(org.id)}</td>
-                <td class="px-4 py-3">${text(org.country || '—')}</td>
-                <td class="px-4 py-3">${org.people}</td>
-                <td class="px-4 py-3 text-slate-500">${text(org.createdAt ? org.createdAt.slice(0, 10) : '—')}</td>
-              </tr>`).join('')
-            : '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">No organisations yet.</td></tr>';
-        } catch (error) {
-          if (token()) showError('create-error', error.message);
+        const email = operatorEmail();
+        $('side-email').textContent = email;
+        $('side-mark').textContent = (email[0] || 'D').toUpperCase();
+      }
+
+      function render() {
+        const page = PAGES.find((row) => row.id === state.page) || PAGES[0];
+        $('page-title').textContent = page.label;
+        $('page-copy').textContent = page.copy;
+        $('side-nav').innerHTML = PAGES.map((row) => navButton(row, false)).join('');
+        $('mobile-nav').innerHTML = PAGES.map((row) => navButton(row, true)).join('');
+        if (!state.data) {
+          $('view').innerHTML = '<p class="py-16 text-center text-sm text-slate-500">Loading…</p>';
+          return;
         }
+        VIEWS[page.id]();
       }
 
-      let openOrg = '';
+      // ---------- views ----------
 
-      function flash(result) {
-        $('flash').hidden = false;
-        $('flash-text').textContent = result.flash;
-        $('flash-link').textContent = result.inviteUrl || '';
-        $('flash-link').hidden = result.emailed !== false;
+      function tile(label, value, note, tone = '') {
+        return `<div class="rounded-2xl border border-line bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">${label}</p>
+          <p class="mt-2 text-2xl font-semibold ${tone}">${value}</p>
+          ${note ? `<p class="mt-1 text-xs text-slate-500">${note}</p>` : ''}
+        </div>`;
       }
 
-      function paintDetail(view) {
+      function emptyRow(cols, message) {
+        return `<tr><td colspan="${cols}" class="px-4 py-10 text-center text-sm text-slate-500">${message}</td></tr>`;
+      }
+
+      function toolbar(inner, page) {
+        return `<div class="flex flex-wrap items-center gap-2">${inner}
+          <button type="button" data-clear="${page}" class="px-1 text-sm text-brand hover:underline">Clear</button>
+          <p id="result-count" class="ml-auto text-sm text-slate-500"></p></div>`;
+      }
+
+      function searchBox(page, value, placeholder) {
+        return `<label class="relative min-w-[220px] flex-1">
+          <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+          </span>
+          <input type="search" data-filter="${page}.q" value="${text(value)}" placeholder="${placeholder}" aria-label="Search" class="control w-full pl-9" />
+        </label>`;
+      }
+
+      function select(page, key, pairs, current, label) {
+        return `<select data-filter="${page}.${key}" aria-label="${label}" class="control">${options(pairs, current)}</select>`;
+      }
+
+      const VIEWS = {
+        overview() {
+          const { organisations, invitations } = state.data;
+          const count = (status) => organisations.filter((row) => row.status === status).length;
+          const people = organisations.reduce((sum, row) => sum + row.people, 0);
+          const pending = invitations.filter((row) => row.status === 'pending').length;
+          const items = attention();
+          state.attention = items;
+          const recent = organisations.slice(0, 5);
+          $('view').innerHTML = `
+            <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              ${tile('Organisations', organisations.length, `${count('active')} active`)}
+              ${tile('Awaiting admin', count('awaiting'), 'Invitation sent, not accepted', count('awaiting') ? 'text-amber-700' : '')}
+              ${tile('No admin', count('no-admin'), 'Needs an admin invitation', count('no-admin') ? 'text-rose-700' : '')}
+              ${tile('Client people', people, 'Across all organisations')}
+              ${tile('Admin invitations', pending, 'Waiting to be accepted')}
+            </div>
+
+            <section class="mt-6 rounded-2xl border border-line bg-white">
+              <div class="flex items-center justify-between border-b border-line px-5 py-4">
+                <h2 class="font-semibold">Needs attention</h2>
+                <span class="text-sm text-slate-500">${items.length} ${items.length === 1 ? 'item' : 'items'}</span>
+              </div>
+              <ul class="divide-y divide-line">
+                ${items.length ? items.map((item, index) => `
+                  <li class="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+                    <span class="h-2 w-2 shrink-0 rounded-full ${item.level === 3 ? 'bg-rose-500' : item.level === 2 ? 'bg-amber-500' : 'bg-slate-400'}"></span>
+                    <span class="min-w-0 flex-1">${text(item.text)}</span>
+                    <button type="button" data-attention="${index}" class="control text-xs font-medium hover:bg-mist">${item.action}</button>
+                  </li>`).join('') : '<li class="px-5 py-8 text-center text-sm text-slate-500">Nothing needs attention. Every organisation has an admin.</li>'}
+              </ul>
+            </section>
+
+            <section class="mt-6 rounded-2xl border border-line bg-white">
+              <div class="flex items-center justify-between border-b border-line px-5 py-4">
+                <h2 class="font-semibold">Recently opened</h2>
+                <a href="#organisations" class="text-sm text-brand hover:underline">All organisations</a>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full min-w-[560px] text-left text-sm">
+                  <tbody class="divide-y divide-line">
+                    ${recent.length ? recent.map((org) => `
+                      <tr class="cursor-pointer hover:bg-mist" data-org="${text(org.id)}">
+                        <td class="px-5 py-3 font-medium">${text(orgName(org))}</td>
+                        <td class="px-5 py-3">${badge(org.status)}</td>
+                        <td class="px-5 py-3 text-slate-500">${org.people} people</td>
+                        <td class="px-5 py-3 text-slate-500">Opened ${day(org.createdAt)}</td>
+                      </tr>`).join('') : emptyRow(4, 'No organisations yet. Use “Open organisation” to add the first client.')}
+                  </tbody>
+                </table>
+              </div>
+            </section>`;
+        },
+
+        organisations() {
+          const f = state.filters.organisations;
+          const countries = [...new Set(state.data.organisations.map((row) => row.country).filter(Boolean))].sort();
+          $('view').innerHTML = `
+            ${toolbar(`
+              ${searchBox('organisations', f.q, 'Search name, legal name, ID, industry')}
+              ${select('organisations', 'status', [['', 'Any status'], ['active', 'Active'], ['awaiting', 'Awaiting admin'], ['no-admin', 'No admin']], f.status, 'Status')}
+              ${select('organisations', 'country', [['', 'Any country'], ...countries.map((c) => [c, c]), ['-', 'Country not set']], f.country, 'Country')}
+              ${select('organisations', 'setup', [['', 'Any setup'], ['complete', 'Details filled in'], ['incomplete', 'Details missing'], ['no-controls', 'No requirements yet'], ['open-tickets', 'Has open tickets']], f.setup, 'Setup')}
+              ${select('organisations', 'sort', [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['name', 'Name A–Z'], ['people', 'Most people'], ['activity', 'Recent activity']], f.sort, 'Sort')}
+            `, 'organisations')}
+            <div class="mt-4 overflow-x-auto rounded-2xl border border-line bg-white">
+              <table class="w-full min-w-[860px] text-left text-sm">
+                <thead class="border-b border-line bg-mist text-xs uppercase tracking-wide text-slate-500">
+                  <tr><th class="px-4 py-3">Organisation</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Country</th><th class="px-4 py-3">People</th><th class="px-4 py-3">Requirements</th><th class="px-4 py-3">Open tickets</th><th class="px-4 py-3">Last activity</th><th class="px-4 py-3">Opened</th></tr>
+                </thead>
+                <tbody id="results" class="divide-y divide-line"></tbody>
+              </table>
+            </div>`;
+          RESULTS.organisations();
+        },
+
+        admins() {
+          const f = state.filters.admins;
+          $('view').innerHTML = `
+            ${toolbar(`
+              ${searchBox('admins', f.q, 'Search name or email')}
+              ${select('admins', 'status', [['', 'Joined and waiting'], ['joined', 'Joined'], ['pending', 'Invitation waiting'], ['stale', 'Waiting 7+ days']], f.status, 'Status')}
+              <select data-filter="admins.org" aria-label="Organisation" class="control">${orgOptions(f.org)}</select>
+            `, 'admins')}
+            <div class="mt-4 overflow-x-auto rounded-2xl border border-line bg-white">
+              <table class="w-full min-w-[760px] text-left text-sm">
+                <thead class="border-b border-line bg-mist text-xs uppercase tracking-wide text-slate-500">
+                  <tr><th class="px-4 py-3">Name</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Organisation</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th><th class="px-4 py-3"></th></tr>
+                </thead>
+                <tbody id="results" class="divide-y divide-line"></tbody>
+              </table>
+            </div>`;
+          RESULTS.admins();
+        },
+
+        activity() {
+          const f = state.filters.activity;
+          $('view').innerHTML = `
+            ${toolbar(`
+              ${searchBox('activity', f.q, 'Search people or organisations')}
+              ${select('activity', 'type', [['', 'All events'], ['opened', 'Organisation opened'], ['invited', 'Admin invited'], ['joined', 'Admin joined']], f.type, 'Event')}
+              <select data-filter="activity.org" aria-label="Organisation" class="control">${orgOptions(f.org)}</select>
+              ${select('activity', 'range', [['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days'], ['all', 'All time']], f.range, 'Period')}
+            `, 'activity')}
+            <ol id="results" class="mt-4 divide-y divide-line rounded-2xl border border-line bg-white"></ol>`;
+          RESULTS.activity();
+        },
+
+        operators() {
+          const me = operatorEmail();
+          const rows = state.data.operators;
+          $('view').innerHTML = `
+            <div class="overflow-x-auto rounded-2xl border border-line bg-white">
+              <table class="w-full min-w-[480px] text-left text-sm">
+                <thead class="border-b border-line bg-mist text-xs uppercase tracking-wide text-slate-500">
+                  <tr><th class="px-4 py-3">Email</th><th class="px-4 py-3">Access</th><th class="px-4 py-3">Since</th></tr>
+                </thead>
+                <tbody class="divide-y divide-line">
+                  ${rows.map((row) => `
+                    <tr>
+                      <td class="px-4 py-3 font-medium">${text(row.email)} ${row.email === me ? pill('You', 'bg-blue-50 text-blue-800 ring-blue-200') : ''}</td>
+                      <td class="px-4 py-3">Super admin</td>
+                      <td class="px-4 py-3 text-slate-500">${day(row.createdAt)}</td>
+                    </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+            <section class="mt-6 rounded-2xl border border-line bg-white p-5 text-sm">
+              <h2 class="font-semibold">Adding or resetting an operator</h2>
+              <p class="mt-1 text-slate-500">Super admin access is granted from a developer machine with the project's database key, not from this page. That keeps the most powerful access off the public web.</p>
+              <pre class="mt-3 overflow-x-auto rounded-lg bg-mist p-3 text-xs">npm run operator -- name@data-sentinels.com
+npm run operator -- name@data-sentinels.com --reset</pre>
+            </section>`;
+        },
+
+        account() {
+          $('view').innerHTML = `
+            <section class="max-w-xl rounded-2xl border border-line bg-white p-5 text-sm">
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Signed in as</p>
+              <p class="mt-1 text-base font-semibold">${text(operatorEmail())}</p>
+              <p class="mt-1 text-slate-500">Super admin · Data Sentinels</p>
+              <dl class="mt-5 grid gap-3 sm:grid-cols-2">
+                <div><dt class="text-slate-500">Session</dt><dd>Lasts 14 days, or until you sign out. Closing this tab signs you out of this browser.</dd></div>
+                <div><dt class="text-slate-500">Password</dt><dd>Changed by a developer with <code class="text-xs">--reset</code>. See Operators.</dd></div>
+              </dl>
+              <button id="signout" type="button" class="mt-6 rounded-lg border border-rose-200 px-4 py-2 font-medium text-rose-700 hover:bg-rose-50">Sign out</button>
+            </section>`;
+          $('signout').addEventListener('click', signOut);
+        },
+      };
+
+      // Results only, so typing in a filter keeps its focus.
+      const RESULTS = {
+        organisations() {
+          const f = state.filters.organisations;
+          let rows = state.data.organisations.filter((org) => matches(f.q, org.name, org.legalName, org.id, org.industry, org.country)
+            && (!f.status || org.status === f.status)
+            && (!f.country || (f.country === '-' ? !org.country : org.country === f.country))
+            && (!f.setup
+              || (f.setup === 'complete' && org.profileComplete)
+              || (f.setup === 'incomplete' && !org.profileComplete)
+              || (f.setup === 'no-controls' && !org.controls)
+              || (f.setup === 'open-tickets' && org.openTickets > 0)));
+          const sorters = {
+            newest: (a, b) => String(b.createdAt).localeCompare(String(a.createdAt)),
+            oldest: (a, b) => String(a.createdAt || '9').localeCompare(String(b.createdAt || '9')),
+            name: (a, b) => orgName(a).localeCompare(orgName(b)),
+            people: (a, b) => b.people - a.people,
+            activity: (a, b) => String(b.lastActivity).localeCompare(String(a.lastActivity)),
+          };
+          rows = rows.sort(sorters[f.sort] || sorters.newest);
+          $('result-count').textContent = `${rows.length} of ${state.data.organisations.length}`;
+          $('results').innerHTML = rows.length ? rows.map((org) => `
+            <tr class="cursor-pointer hover:bg-mist" data-org="${text(org.id)}">
+              <td class="px-4 py-3">
+                <p class="font-medium text-brand">${text(orgName(org))}</p>
+                <p class="text-xs text-slate-500">${text([org.id, org.industry].filter(Boolean).join(' · '))}</p>
+              </td>
+              <td class="px-4 py-3">${badge(org.status)}${org.profileComplete ? '' : '<p class="mt-1 text-xs text-slate-500">Details missing</p>'}</td>
+              <td class="px-4 py-3">${text(org.country || '—')}</td>
+              <td class="px-4 py-3">${org.people}</td>
+              <td class="px-4 py-3">${org.controls}</td>
+              <td class="px-4 py-3">${org.openTickets}</td>
+              <td class="px-4 py-3 text-slate-500">${ago(org.lastActivity)}</td>
+              <td class="px-4 py-3 text-slate-500">${day(org.createdAt)}</td>
+            </tr>`).join('') : emptyRow(8, 'No organisation matches these filters.');
+        },
+
+        admins() {
+          const f = state.filters.admins;
+          const joined = state.data.admins.map((row) => ({ ...row, kind: 'joined' }));
+          const waiting = state.data.invitations.filter((row) => row.status === 'pending').map((row) => ({ ...row, kind: 'pending' }));
+          const rows = [...waiting, ...joined].filter((row) => {
+            const org = orgById(row.organisationId);
+            return matches(f.q, row.name, row.email, orgName(org))
+              && (!f.org || row.organisationId === f.org)
+              && (!f.status
+                || (f.status === 'joined' && row.kind === 'joined')
+                || (f.status === 'pending' && row.kind === 'pending')
+                || (f.status === 'stale' && row.kind === 'pending' && daysSince(row.invitedAt) >= 7));
+          });
+          $('result-count').textContent = `${rows.length} ${rows.length === 1 ? 'person' : 'people'}`;
+          $('results').innerHTML = rows.length ? rows.map((row) => {
+            const org = orgById(row.organisationId);
+            const waited = daysSince(row.invitedAt);
+            const status = row.kind === 'joined'
+              ? (row.hasLogin ? pill('Joined', 'bg-emerald-50 text-emerald-800 ring-emerald-200') : pill('No sign-in', 'bg-slate-100 text-slate-700 ring-slate-200'))
+              : pill(waited >= 7 ? `Waiting ${waited} days` : 'Invitation waiting', 'bg-amber-50 text-amber-800 ring-amber-200');
+            const action = row.kind === 'pending'
+              ? `<button type="button" data-resend="${text(row.id)}" data-resend-org="${text(row.organisationId)}" class="control text-xs font-medium hover:bg-mist">Resend</button>`
+              : `<button type="button" data-org="${text(row.organisationId)}" class="control text-xs font-medium hover:bg-mist">Organisation</button>`;
+            return `<tr>
+              <td class="px-4 py-3 font-medium">${text(row.name || '—')}</td>
+              <td class="px-4 py-3">${text(row.email || '—')}</td>
+              <td class="px-4 py-3"><button type="button" data-org="${text(row.organisationId)}" class="text-left text-brand hover:underline">${text(orgName(org))}</button></td>
+              <td class="px-4 py-3">${status}</td>
+              <td class="px-4 py-3 text-slate-500">${row.kind === 'pending' ? `Sent ${day(row.invitedAt)}` : row.joinedAt ? `Joined ${day(row.joinedAt)}` : '—'}</td>
+              <td class="px-4 py-3 text-right">${action}</td>
+            </tr>`;
+          }).join('') : emptyRow(6, 'No admin matches these filters.');
+        },
+
+        activity() {
+          const f = state.filters.activity;
+          const events = [];
+          state.data.organisations.forEach((org) => {
+            if (org.createdAt) events.push({ type: 'opened', at: org.createdAt, org, who: '', text: `${orgName(org)} was opened on the register.` });
+          });
+          state.data.invitations.forEach((invite) => {
+            const org = orgById(invite.organisationId);
+            const by = invite.invitedBy === 'platform' ? 'Data Sentinels' : 'an organisation admin';
+            if (invite.invitedAt) events.push({ type: 'invited', at: invite.invitedAt, org, who: `${invite.name} ${invite.email}`, text: `${invite.name || invite.email} was invited as admin of ${orgName(org)} by ${by}.` });
+            if (invite.joinedAt) events.push({ type: 'joined', at: invite.joinedAt, org, who: `${invite.name} ${invite.email}`, text: `${invite.name || invite.email} joined ${orgName(org)} as admin.` });
+          });
+          const limit = f.range === 'all' ? Infinity : Number(f.range);
+          const rows = events
+            .filter((row) => (!f.type || row.type === f.type)
+              && (!f.org || row.org?.id === f.org)
+              && daysSince(row.at) <= limit
+              && matches(f.q, row.who, orgName(row.org), row.text))
+            .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+          const tone = { opened: 'bg-brand', invited: 'bg-amber-500', joined: 'bg-emerald-500' };
+          const label = { opened: 'Opened', invited: 'Invited', joined: 'Joined' };
+          $('result-count').textContent = `${rows.length} ${rows.length === 1 ? 'event' : 'events'}`;
+          $('results').innerHTML = rows.length ? rows.map((row) => `
+            <li class="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+              <span class="h-2 w-2 shrink-0 rounded-full ${tone[row.type]}"></span>
+              <span class="w-16 shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500">${label[row.type]}</span>
+              <span class="min-w-0 flex-1">${text(row.text)}</span>
+              <time class="text-xs text-slate-500" datetime="${text(row.at)}">${day(row.at)}</time>
+            </li>`).join('') : '<li class="px-5 py-10 text-center text-sm text-slate-500">No onboarding activity in this view.</li>';
+        },
+      };
+
+      // ---------- organisation drawer ----------
+
+      function paintDrawer(view) {
         const org = view.organisation;
-        openOrg = org.id;
-        $('detail').hidden = false;
-        $('detail-name').textContent = org.name || org.legalName || 'Not named yet';
-        $('detail-meta').textContent = `${org.id} · ${org.people} people · ${org.controls} requirements`;
-        $('detail-admins').innerHTML = view.admins.length
-          ? view.admins.map((row) => `<li class="py-2"><p class="font-medium">${text(row.name)}</p><p class="text-slate-500">${text(row.email || 'No email on record')}</p></li>`).join('')
-          : '<li class="py-2 text-slate-500">No admin has joined yet.</li>';
-        $('detail-invites').innerHTML = view.invitations.length
+        const summary = orgById(org.id);
+        state.drawerOrg = org.id;
+        $('drawer-name').textContent = org.name || org.legalName || 'Not named yet';
+        $('drawer-meta').textContent = [org.id, org.country, summary?.createdAt ? `opened ${day(summary.createdAt)}` : ''].filter(Boolean).join(' · ');
+        const stat = (label, value) => `<div class="rounded-xl bg-mist p-3"><p class="text-xs text-slate-500">${label}</p><p class="mt-1 text-lg font-semibold">${value}</p></div>`;
+        $('drawer-stats').innerHTML = [
+          stat('People', org.people),
+          stat('Requirements', org.controls),
+          stat('Evidence', summary?.evidence ?? '—'),
+          stat('Open tickets', summary?.openTickets ?? '—'),
+        ].join('');
+        $('drawer-admins').innerHTML = view.admins.length
+          ? view.admins.map((row) => `<li class="px-4 py-3"><p class="font-medium">${text(row.name)}</p><p class="text-slate-500">${text(row.email || 'No email on record')}</p></li>`).join('')
+          : '<li class="px-4 py-3 text-slate-500">No admin has joined yet.</li>';
+        $('drawer-invites').innerHTML = view.invitations.length
           ? view.invitations.map((row) => `
-            <li class="flex items-center justify-between gap-3 py-2">
-              <div><p class="font-medium">${text(row.name || row.email)}</p><p class="text-slate-500">${text(row.email)} · sent ${text((row.invitedAt || '').slice(0, 10))}</p></div>
-              <button type="button" data-resend="${text(row.id)}" class="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium hover:bg-mist">Resend</button>
+            <li class="flex items-center justify-between gap-3 px-4 py-3">
+              <div class="min-w-0"><p class="truncate font-medium">${text(row.name || row.email)}</p><p class="truncate text-slate-500">${text(row.email)} · sent ${day(row.invitedAt)}</p></div>
+              <button type="button" data-resend="${text(row.id)}" data-resend-org="${text(org.id)}" class="control shrink-0 text-xs font-medium hover:bg-mist">Resend</button>
             </li>`).join('')
-          : '<li class="py-2 text-slate-500">None waiting.</li>';
+          : '<li class="px-4 py-3 text-slate-500">None waiting.</li>';
       }
 
-      async function openDetail(id) {
-        showError('admin-error', '');
+      async function openDrawer(id) {
+        $('drawer-error').hidden = true;
         try {
-          paintDetail(await call(`/api/operator/organisations/${encodeURIComponent(id)}`));
-          $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          paintDrawer(await call(`/api/operator/organisations/${encodeURIComponent(id)}`));
+          if (!$('drawer').open) $('drawer').showModal();
         } catch (error) {
-          showError('create-error', error.message);
+          showError(error.message);
         }
       }
 
-      $('rows').addEventListener('click', (event) => {
-        const row = event.target.closest('[data-org]');
-        if (row) openDetail(row.dataset.org);
-      });
-
-      $('detail-close').addEventListener('click', () => {
-        openOrg = '';
-        $('detail').hidden = true;
-      });
-
-      $('detail-invites').addEventListener('click', async (event) => {
-        const button = event.target.closest('[data-resend]');
-        if (!button) return;
-        button.disabled = true;
+      async function resend(orgId, invitationId, button) {
+        if (button) button.disabled = true;
         try {
-          const result = await call(`/api/operator/organisations/${encodeURIComponent(openOrg)}/invitations/${encodeURIComponent(button.dataset.resend)}/resend`, { method: 'POST', body: '{}' });
+          const result = await call(`/api/operator/organisations/${encodeURIComponent(orgId)}/invitations/${encodeURIComponent(invitationId)}/resend`, { method: 'POST', body: '{}' });
           flash(result);
-          paintDetail(result);
+          if ($('drawer').open && state.drawerOrg === orgId) paintDrawer(result);
+          await load();
         } catch (error) {
-          showError('admin-error', error.message);
-          button.disabled = false;
+          if ($('drawer').open) {
+            $('drawer-error').textContent = error.message;
+            $('drawer-error').hidden = false;
+          } else {
+            showError(error.message);
+          }
+        } finally {
+          if (button) button.disabled = false;
         }
+      }
+
+      // ---------- events ----------
+
+      function route() {
+        const id = location.hash.replace('#', '');
+        state.page = PAGES.some((row) => row.id === id) ? id : 'overview';
+        render();
+      }
+
+      window.addEventListener('hashchange', route);
+
+      $('view').addEventListener('input', (event) => {
+        const key = event.target.dataset.filter;
+        if (!key) return;
+        const [page, field] = key.split('.');
+        state.filters[page][field] = event.target.value;
+        RESULTS[page]();
       });
+
+      $('view').addEventListener('click', (event) => {
+        const clear = event.target.closest('[data-clear]');
+        if (clear) {
+          const page = clear.dataset.clear;
+          const defaults = { organisations: { sort: 'newest' }, admins: {}, activity: { range: '30' } }[page];
+          Object.keys(state.filters[page]).forEach((key) => { state.filters[page][key] = defaults[key] || ''; });
+          render();
+          return;
+        }
+        const resendButton = event.target.closest('[data-resend]');
+        if (resendButton) {
+          resend(resendButton.dataset.resendOrg, resendButton.dataset.resend, resendButton);
+          return;
+        }
+        const attentionButton = event.target.closest('[data-attention]');
+        if (attentionButton) {
+          const item = state.attention[Number(attentionButton.dataset.attention)];
+          if (item.kind === 'resend') resend(item.invite.organisationId, item.invite.id, attentionButton);
+          else openDrawer(item.org.id);
+          return;
+        }
+        const row = event.target.closest('[data-org]');
+        if (row) openDrawer(row.dataset.org);
+      });
+
+      $('drawer').addEventListener('click', (event) => {
+        if (event.target === $('drawer')) $('drawer').close();
+        const button = event.target.closest('[data-resend]');
+        if (button) resend(button.dataset.resendOrg, button.dataset.resend, button);
+      });
+      $('drawer-close').addEventListener('click', () => $('drawer').close());
 
       $('admin-form').addEventListener('submit', async (event) => {
         event.preventDefault();
-        showError('admin-error', '');
+        $('drawer-error').hidden = true;
         const data = new FormData(event.target);
         try {
-          const result = await call(`/api/operator/organisations/${encodeURIComponent(openOrg)}/admins`, {
+          const result = await call(`/api/operator/organisations/${encodeURIComponent(state.drawerOrg)}/admins`, {
             method: 'POST',
             body: JSON.stringify({ name: data.get('name'), email: data.get('email') }),
           });
           flash(result);
-          paintDetail(result);
+          paintDrawer(result);
           event.target.reset();
-          show();
+          load();
         } catch (error) {
-          showError('admin-error', error.message);
+          $('drawer-error').textContent = error.message;
+          $('drawer-error').hidden = false;
         }
       });
 
+      $('open-create').addEventListener('click', () => {
+        $('create-error').hidden = true;
+        $('create-dialog').showModal();
+      });
+      $('create-cancel').addEventListener('click', () => $('create-dialog').close());
+
+      $('create-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        $('create-error').hidden = true;
+        const data = new FormData(event.target);
+        try {
+          const result = await call('/api/operator/organisations', {
+            method: 'POST',
+            body: JSON.stringify({ name: data.get('name'), adminName: data.get('adminName'), adminEmail: data.get('adminEmail') }),
+          });
+          $('create-dialog').close();
+          event.target.reset();
+          flash(result);
+          await load();
+          openDrawer(result.organisation.id);
+        } catch (error) {
+          $('create-error').textContent = error.message;
+          $('create-error').hidden = false;
+        }
+      });
+
+      $('refresh').addEventListener('click', load);
+      $('flash-close').addEventListener('click', () => { $('flash').hidden = true; });
+
+      async function signOut() {
+        await call('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        remember('');
+        state.data = null;
+        paintShell();
+      }
+
       $('signin-form').addEventListener('submit', async (event) => {
         event.preventDefault();
-        showError('signin-error', '');
+        $('signin-error').hidden = true;
         const data = new FormData(event.target);
         try {
           const response = await fetch('/api/operator/login', {
@@ -281,44 +842,22 @@
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(payload.error || 'Sign in did not work.');
-          remember(payload.token);
-          try { sessionStorage.setItem('operator-email', payload.email); } catch {}
+          remember(payload.token, payload.email);
           event.target.reset();
-          show();
+          paintShell();
+          route();
+          load();
         } catch (error) {
-          showError('signin-error', error.message);
+          $('signin-error').textContent = error.message;
+          $('signin-error').hidden = false;
         }
       });
 
-      $('create-form').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        showError('create-error', '');
-        const data = new FormData(event.target);
-        try {
-          const result = await call('/api/operator/organisations', {
-            method: 'POST',
-            body: JSON.stringify({
-              name: data.get('name'),
-              adminName: data.get('adminName'),
-              adminEmail: data.get('adminEmail'),
-            }),
-          });
-          flash(result);
-          event.target.reset();
-          await show();
-          openDetail(result.organisation.id);
-        } catch (error) {
-          showError('create-error', error.message);
-        }
-      });
-
-      $('signout').addEventListener('click', async () => {
-        await call('/api/auth/logout', { method: 'POST' }).catch(() => {});
-        remember('');
-        show();
-      });
-
-      show();
+      paintShell();
+      if (token()) {
+        route();
+        load();
+      }
     </script>
   </body>
 </html>

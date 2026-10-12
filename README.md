@@ -31,7 +31,7 @@ npm run operator -- name@data-sentinels.com
 
 ## Database
 
-Run these in the Supabase SQL editor, in order, once each: `supabase/register.sql`, then `supabase/tenancy.sql`. Do not run `register.sql` again after `tenancy.sql`, because it would bring back the old single-organisation save.
+Run these in the Supabase SQL editor, in order, once each: `supabase/register.sql`, then `supabase/tenancy.sql`, then `supabase/operator.sql`. Do not run `register.sql` again after `tenancy.sql`, because it would bring back the old single-organisation save.
 
 The T4L grading AIMS pack is loaded as the worked example. A control file can replace it. One row per line:
 
