@@ -272,7 +272,7 @@
         <nav id="mobile-nav" class="flex gap-1 overflow-x-auto border-b border-line bg-white px-3 py-2 md:hidden" aria-label="Sections"></nav>
         <main id="pane" class="flex-1 overflow-y-auto px-4 py-6 md:px-8"></main>
         <footer class="border-t border-line bg-white px-4 py-3 text-xs leading-relaxed text-slate-500 md:px-8">
-          Evidence Register supports AI governance and evidence management. It does not replace an internal audit or provide ISO/IEC 42001 certification.
+          Evidence Register supports AI governance and evidence management. It does not replace an internal audit or provide certification against any standard.
         </footer>
       </div>
     </div>
@@ -299,7 +299,7 @@
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="text-lg font-semibold">Custom requirement</h2>
-            <p class="mt-1 text-sm text-slate-500">Write a requirement this organisation keeps. It is separate from the ISO/IEC 42001 templates.</p>
+            <p class="mt-1 text-sm text-slate-500">Write a requirement this organisation keeps. Use it for a policy with no standard behind it, such as leave, training, or community service.</p>
           </div>
           <button type="button" data-close="control-dialog" class="text-sm text-slate-500">Close</button>
         </div>
@@ -307,7 +307,7 @@
           <textarea name="requirement" required maxlength="240" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal outline-none focus:border-brand"></textarea>
         </label>
         <label class="mt-3 block text-sm font-medium">Evidence it needs
-          <input name="expected" maxlength="120" placeholder="AI risk assessment" class="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal outline-none focus:border-brand" />
+          <input name="expected" maxlength="120" placeholder="Training completion report" class="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal outline-none focus:border-brand" />
         </label>
         <label class="mt-3 block text-sm font-medium">How often it is reviewed
           <input name="frequency" maxlength="80" placeholder="Every 12 months" class="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal outline-none focus:border-brand" />
@@ -329,13 +329,14 @@
       <form id="template-form" class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">ISO/IEC 42001 template</p>
+            <p id="template-family" class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Template</p>
             <h2 id="template-title" class="mt-1 text-lg font-semibold">Template</h2>
           </div>
           <button type="button" data-close="template-dialog" class="text-sm text-slate-500">Close</button>
         </div>
         <p id="template-requirement" class="mt-3 text-sm leading-relaxed text-slate-600"></p>
         <input type="hidden" name="templateId" />
+        <input type="hidden" name="family" />
         <label class="mt-5 block text-sm font-medium">Owner
           <select name="ownerId" required class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-normal outline-none"></select>
         </label>

@@ -6,7 +6,7 @@ const AUTH_COPY = {
   admin: 'This account starts with the admin profile. It sets up the organisation, people, and requirements.',
 };
 const PROFILE_NOTE = {
-  uploader: 'Uploads a document against an ISO/IEC 42001 requirement.',
+  uploader: 'Uploads a document against a requirement.',
   reviewer: 'Decides the finding. Cannot decide a file they uploaded.',
   admin: 'Establishes the organisation: identity, structure, people, and who may review.',
 };
@@ -51,6 +51,7 @@ const STATUS = {
   PARTIAL: ['Partially met', 'bg-amber-50 text-amber-900'],
   'NOT MET': ['Not met', 'bg-rose-50 text-rose-800'],
   'NO EVIDENCE': ['No evidence', 'bg-slate-100 text-slate-600'],
+  EXPIRED: ['Expired', 'bg-orange-50 text-orange-800'],
 };
 
 const TICKET = {
@@ -353,12 +354,25 @@ function responsibilityTable(list, canAct) {
     </div>`;
 }
 
+// "7 of 10 requirements evidenced, 2 overdue" for the whole organisation.
+function registerSummary() {
+  const all = ws().controls || [];
+  if (!all.length) return 'No requirements yet';
+  const day = ws().today || new Date().toISOString().slice(0, 10);
+  const evidenced = all.filter((control) => control.agreed === 'MET').length;
+  const lateTickets = new Set((ws().tickets || [])
+    .filter((ticket) => !['resolved', 'closed'].includes(ticket.status) && ticket.due && ticket.due < day)
+    .map((ticket) => ticket.controlId));
+  const overdue = all.filter((control) => control.agreed === 'EXPIRED' || lateTickets.has(control.id)).length;
+  return `${evidenced} of ${all.length} requirements evidenced, ${overdue} overdue`;
+}
+
 function renderDashboard() {
   if (state.profile === 'uploader') return renderUploaderHome();
   if (state.profile === 'admin') return renderAdminHome();
   const all = ws().controls || [];
   const focus = waitingReviews()[0] || all.find((control) => control.agreed !== 'MET') || all[0];
-  const counts = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE'].map((status) => [status, all.filter((control) => control.agreed === status).length]);
+  const counts = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE', 'EXPIRED'].map((status) => [status, all.filter((control) => control.agreed === status).length]);
   const withFile = all.filter((control) => control.evidenceIds.length).length;
   const stats = counts
     .map(
@@ -386,7 +400,7 @@ function renderDashboard() {
     : `<section class="rounded-xl border border-line bg-white p-5">
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">The loop</p>
         <h2 class="mt-2 text-lg font-semibold">No requirement is on the control set yet</h2>
-        <p class="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">Signing in does not create controls, evidence, or tickets. An admin adds a requirement from the inbuilt ISO/IEC 42001 list, or writes one for this organisation. A file can be reviewed after that.</p>
+        <p class="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">Signing in does not create controls, evidence, or tickets. An admin chooses the frameworks the organisation governs against, adds requirements from them, or writes its own. A file can be reviewed after that.</p>
         ${storySteps(null)}
       </section>`;
   pane.innerHTML = `
@@ -397,9 +411,9 @@ function renderDashboard() {
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation.framework)}</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(orgName())}</h1>
       </div>
-      <p class="text-sm text-slate-500">${all.length ? `${withFile} of ${all.length} controls have a file` : 'No controls yet'}</p>
+      <p class="text-sm text-slate-500"><span class="font-medium text-ink">${escapeHtml(registerSummary())}</span>${all.length ? ` · ${withFile} have a file` : ''}</p>
     </div>
-    <div class="mt-5 grid overflow-hidden rounded-xl border border-line bg-white sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-line">${stats}</div>
+    <div class="mt-5 grid overflow-hidden rounded-xl border border-line bg-white sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-line">${stats}</div>
     <div class="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       ${focusCard}
       <section class="rounded-xl border border-line bg-white p-5">
@@ -707,8 +721,8 @@ function renderUploaderHome() {
   const mine = files.filter((item) => item.uploadedBy === state.actorId);
   const pending = all.filter((control) => control.decision?.review === 'awaiting' && control.evidenceIds?.length);
   const assigned = myTickets();
-  const counts = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE'].map((status) => [status, all.filter((control) => control.agreed === status).length]);
-  const dots = { MET: 'bg-emerald-500', PARTIAL: 'bg-amber-400', 'NOT MET': 'bg-rose-500', 'NO EVIDENCE': 'bg-slate-300' };
+  const counts = ['MET', 'PARTIAL', 'NOT MET', 'NO EVIDENCE', 'EXPIRED'].map((status) => [status, all.filter((control) => control.agreed === status).length]);
+  const dots = { MET: 'bg-emerald-500', PARTIAL: 'bg-amber-400', 'NOT MET': 'bg-rose-500', 'NO EVIDENCE': 'bg-slate-300', EXPIRED: 'bg-orange-400' };
   const legend = counts.map(([status, count]) => {
     const share = all.length ? Math.round((count / all.length) * 100) : 0;
     return `<li class="flex items-center justify-between gap-3 text-sm"><span class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full ${dots[status]}"></span>${escapeHtml(STATUS[status][0])}</span><span class="text-slate-500">${share}% (${count})</span></li>`;
@@ -973,9 +987,10 @@ function renderAdminHome() {
     ${banner()}
     ${noteCards()}
     <h1 class="text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
+    <p class="mt-1 text-sm font-medium">${escapeHtml(registerSummary())}</p>
     <p class="mt-2 max-w-3xl text-sm text-slate-500">This page records who the organisation is, how it is structured, and who may own or review a requirement. People confirm their own name and email when they sign up. Saving this does not create evidence or tickets, and it does not approve a file.</p>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      ${fact('Framework', org.framework || 'ISO/IEC 42001')}
+      ${fact('Frameworks', org.framework || 'Internal policy')}
       ${fact('Country', org.country || 'Not set')}
       ${fact('Industry', org.industry || 'Not set')}
       ${fact('Created', shortDate(org.createdAt))}
@@ -995,8 +1010,9 @@ function renderAdminHome() {
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
       <h2 class="text-sm font-semibold">Identity</h2>
-      <p class="mt-1 text-sm text-slate-500">Legal name, operating name, and where the organisation works. The framework stays ISO/IEC 42001.</p>
+      <p class="mt-1 text-sm text-slate-500">Legal name, operating name, where the organisation works, and the frameworks it governs against.</p>
       <form id="org-form" class="mt-4 grid gap-3 sm:grid-cols-2">
+        ${frameworkPicker(org.framework)}
         ${field('Legal name', 'legalName', org.legalName)}
         ${field('Operating name', 'name', org.name)}
         ${field('Industry', 'industry', org.industry)}
@@ -1265,17 +1281,17 @@ function renderControls() {
   const rows = controls().map((control) => `
     <tr class="border-t border-line align-top">
       <td class="whitespace-nowrap px-5 py-3 text-sm font-medium">${escapeHtml(control.id)}</td>
-      <td class="px-5 py-3 text-sm">${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
+      <td class="px-5 py-3 text-sm"><span class="mb-1 block text-xs font-medium text-slate-500">${escapeHtml(control.family || 'Internal policy')}${control.ref ? ` · ${escapeHtml(control.ref)}` : ''}</span>${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
       <td class="px-5 py-3 text-sm">${escapeHtml(person(control.ownerId).name)}</td>
       ${reviewerCell(control)}
       <td class="px-5 py-3">${pill(control.agreed)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${control.evidenceIds.length ? control.evidenceIds.length : 'None'}</td>
       ${state.profile === 'uploader' ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : ''}
     </tr>`).join('');
-  const framework = ws().organisation?.framework || 'ISO/IEC 42001';
+  const framework = ws().organisation?.framework || 'Internal policy';
   const intro = state.profile === 'uploader'
-    ? `These are the ${framework} requirements on this control set. Submit evidence against one of them. The named reviewer is notified and makes the final decision.`
-    : 'These are the requirements this organisation is keeping. Add one from an ISO/IEC 42001 template, or write a custom requirement. A requirement with no file stays at no evidence.';
+    ? 'These are the requirements on this control set. Submit evidence against one of them. The named reviewer is notified and makes the final decision.'
+    : 'These are the requirements this organisation is keeping. Add them from the frameworks it governs against, or write its own policy. A requirement with no file stays at no evidence.';
   pane.innerHTML = `
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
@@ -1297,18 +1313,51 @@ function renderControls() {
 
 function renderTemplates() {
   if (state.profile !== 'admin') return '';
-  const cards = (ws().templates || []).map((template) => `
+  const families = [...new Set((ws().templates || []).map((template) => template.family))];
+  const groups = families.map((family) => {
+    const rows = ws().templates.filter((template) => template.family === family);
+    const open = rows.filter((template) => !template.used).length;
+    const cards = rows.map((template) => `
     <article class="rounded-xl border border-line bg-white p-4">
-      <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(template.family)}</p>
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(template.family)}${template.ref ? ` · ${escapeHtml(template.ref)}` : ''}</p>
       <h2 class="mt-2 text-sm font-semibold">${escapeHtml(template.title)}</h2>
       <p class="mt-2 text-sm leading-relaxed text-slate-600">${escapeHtml(template.requirement)}</p>
       <p class="mt-2 text-xs text-slate-500">${escapeHtml(template.expected)} · ${escapeHtml(template.frequency)}</p>
       <button type="button" data-use-template="${template.id}" ${template.used ? 'disabled' : ''} class="mt-4 rounded-lg px-3 py-2 text-sm font-medium ${template.used ? 'cursor-default bg-slate-100 text-slate-400' : 'bg-navy text-white'}">${template.used ? 'On the control set' : 'Use template'}</button>
     </article>`).join('');
+    return `
+    <details class="mt-4 rounded-xl border border-line bg-[#FAFBFC] p-4">
+      <summary class="flex cursor-pointer flex-wrap items-center justify-between gap-3">
+        <span class="text-sm font-semibold">${escapeHtml(family)} <span class="font-normal text-slate-500">· ${rows.length - open} of ${rows.length} on the control set</span></span>
+        ${open ? `<button type="button" data-use-family="${escapeHtml(family)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Add all ${open}</button>` : ''}
+      </summary>
+      <div class="mt-4 grid gap-3 lg:grid-cols-2">${cards}</div>
+    </details>`;
+  }).join('');
   return `
-    <h2 class="mt-8 text-sm font-semibold">ISO/IEC 42001 templates</h2>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">Use a template to put that requirement on this organisation. The wording is for you to adopt. It is not the text of the standard.</p>
-    <div class="mt-4 grid gap-3 lg:grid-cols-2">${cards}</div>`;
+    <h2 class="mt-8 text-sm font-semibold">Requirement templates</h2>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500">These come from the frameworks chosen on the Organisation page. The wording is a plain-language summary for you to adopt. It is not the text of the standard, and a purchased standard you upload stays with this organisation.</p>
+    ${groups}`;
+}
+
+function frameworkPicker(current) {
+  const chosen = String(current || 'Internal policy').split(',').map((item) => item.trim());
+  const notes = {
+    'ISO/IEC 27001': 'Information security management',
+    'PCI DSS': 'Payment card data security',
+    'ISO/IEC 42001': 'AI management system',
+    'Internal policy': 'Your own policies, no standard behind them',
+  };
+  const boxes = (ws().frameworks || Object.keys(notes)).map((name) => `
+    <label class="flex items-start gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm">
+      <input type="checkbox" name="frameworks" value="${escapeHtml(name)}" ${chosen.includes(name) ? 'checked' : ''} class="mt-0.5" />
+      <span><span class="font-medium">${escapeHtml(name)}</span><span class="block text-xs text-slate-500">${escapeHtml(notes[name] || '')}</span></span>
+    </label>`).join('');
+  return `
+    <fieldset class="sm:col-span-2">
+      <legend class="text-sm font-medium">Frameworks this organisation governs against</legend>
+      <div class="mt-2 grid gap-2 sm:grid-cols-2">${boxes}</div>
+    </fieldset>`;
 }
 
 function whatNext() {
@@ -1854,7 +1903,7 @@ function renderEvidence() {
     ${banner()}
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation?.framework || 'ISO/IEC 42001')}</p>
+        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation?.framework || 'Internal policy')}</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">Evidence</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-500">A document is recorded against a requirement. A file from this computer is fingerprinted here. Google Drive, SharePoint, OneDrive, and the other repositories are named, and a person records where the file already lives.</p>
       </div>
@@ -2120,7 +2169,7 @@ function historyTableBody() {
       <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-500">${escapeHtml(whenTime(row.at))}</td>
       <td class="px-4 py-3 text-sm font-medium">${escapeHtml(person(row.actorId).name)}</td>
       <td class="whitespace-nowrap px-4 py-3 text-sm">${escapeHtml(historyCategory(row.text))}</td>
-      <td class="px-4 py-3 text-sm leading-relaxed">${escapeHtml(row.text)}</td>
+      <td class="px-4 py-3 text-sm leading-relaxed">${escapeHtml(row.text)}${row.hash ? `<span class="mt-1 block font-mono text-xs text-slate-400" title="${escapeHtml(row.hash)}">Fingerprint ${escapeHtml(row.hash.slice(0, 16))}</span>` : ''}</td>
     </tr>`).join('') || `<tr><td colspan="4" class="px-4 py-8 text-sm text-slate-500">${all.length ? 'Nothing matches.' : 'Nothing has been recorded yet.'}</td></tr>`;
 }
 
@@ -2139,7 +2188,7 @@ function renderHistory() {
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">History</h1>
-        <p class="mt-2 max-w-2xl text-sm text-slate-500">Each line is added. Nothing on this page rewrites an earlier line.</p>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">Each line is only ever added. The database refuses to change or delete a line, and each line is fingerprinted and chained to the one before it, so a changed line would show.</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <input id="history-q" type="search" value="${escapeHtml(state.historyQuery)}" placeholder="Search history" class="w-64 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none placeholder:text-slate-400 focus:border-[#1860C8]" />
@@ -2921,13 +2970,29 @@ pane.addEventListener('click', (event) => {
     return;
   }
   if (event.target.id === 'open-control') document.getElementById('control-dialog').showModal();
+  const useFamily = event.target.closest('[data-use-family]');
+  if (useFamily) {
+    event.preventDefault();
+    const family = useFamily.dataset.useFamily;
+    const open = (ws().templates || []).filter((row) => row.family === family && !row.used);
+    document.getElementById('template-family').textContent = family;
+    document.getElementById('template-title').textContent = `Add ${open.length} ${family} requirements`;
+    document.getElementById('template-requirement').textContent = open.map((row) => row.title).join(' · ');
+    document.querySelector('#template-form [name="templateId"]').value = '';
+    document.querySelector('#template-form [name="family"]').value = family;
+    paintChrome();
+    document.getElementById('template-dialog').showModal();
+    return;
+  }
   const useTemplate = event.target.closest('[data-use-template]');
   if (useTemplate && !useTemplate.disabled) {
     const template = (ws().templates || []).find((row) => row.id === useTemplate.dataset.useTemplate);
     if (!template) return;
+    document.getElementById('template-family').textContent = `${template.family} template`;
     document.getElementById('template-title').textContent = template.title;
     document.getElementById('template-requirement').textContent = template.requirement;
     document.querySelector('#template-form [name="templateId"]').value = template.id;
+    document.querySelector('#template-form [name="family"]').value = '';
     paintChrome();
     document.getElementById('template-dialog').showModal();
   }
@@ -3001,6 +3066,7 @@ pane.addEventListener('submit', (event) => {
       description: data.get('description'),
       contactName: data.get('contactName'),
       emailDomain: data.get('emailDomain'),
+      frameworks: data.getAll('frameworks'),
     });
     return;
   }
@@ -3537,6 +3603,7 @@ document.getElementById('template-form').addEventListener('submit', (event) => {
   document.getElementById('template-dialog').close();
   post('/api/loop/templates', {
     templateId: data.get('templateId'),
+    family: data.get('family'),
     ownerId: data.get('ownerId'),
     reviewerId: data.get('reviewerId'),
   });
