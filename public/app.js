@@ -1300,7 +1300,10 @@ function renderControls() {
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">Requirements</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-500">${escapeHtml(intro)}</p>
       </div>
-      ${state.profile === 'admin' ? '<button type="button" id="open-control" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Custom requirement</button>' : ''}
+      ${state.profile === 'admin' ? `<div class="flex flex-wrap gap-2">
+        <button type="button" id="open-standard" class="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-medium hover:bg-mist"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/></svg>Load from a standard you own</button>
+        <button type="button" id="open-control" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Custom requirement</button>
+      </div>` : ''}
     </div>
     ${renderTemplates()}
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
@@ -1358,14 +1361,16 @@ function frameworkPicker(current) {
     'ISO/IEC 42001': 'AI management system',
     'Internal policy': 'Your own policies, no standard behind them',
   };
-  const boxes = (ws().frameworks || Object.keys(notes)).map((name) => `
+  const names = [...new Set([...(ws().frameworks || Object.keys(notes)), ...chosen.filter(Boolean)])];
+  const boxes = names.map((name) => `
     <label class="flex items-start gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm">
       <input type="checkbox" name="frameworks" value="${escapeHtml(name)}" ${chosen.includes(name) ? 'checked' : ''} class="mt-0.5" />
-      <span><span class="font-medium">${escapeHtml(name)}</span><span class="block text-xs text-slate-500">${escapeHtml(notes[name] || '')}</span></span>
+      <span><span class="font-medium">${escapeHtml(name)}</span><span class="block text-xs text-slate-500">${escapeHtml(notes[name] || 'Loaded from your own copy')}</span></span>
     </label>`).join('');
   return `
     <fieldset class="sm:col-span-2">
       <legend class="text-sm font-medium">Frameworks this organisation governs against</legend>
+      <p class="mt-1 text-xs text-slate-500">Ticking a framework for the first time puts its built-in requirements on the register. You can reassign owners afterwards.</p>
       <div class="mt-2 grid gap-2 sm:grid-cols-2">${boxes}</div>
     </fieldset>`;
 }
@@ -2979,7 +2984,8 @@ pane.addEventListener('click', (event) => {
     openEvidence(upload.dataset.control || '');
     return;
   }
-  if (event.target.closest('#open-control')) openControlDialog();
+  if (event.target.closest('#open-control')) openControlDialog('policy');
+  if (event.target.closest('#open-standard')) openControlDialog('standard');
   const useFamily = event.target.closest('[data-use-family]');
   if (useFamily) {
     event.preventDefault();
@@ -3445,22 +3451,45 @@ document.getElementById('person-form').addEventListener('submit', (event) => {
 
 // Custom requirement: written by hand, or taken from the organisation's own
 // policy document. The admin chooses which of the document's rules to add.
-const controlDraft = { mode: 'write', policy: null };
+const controlDraft = { mode: 'write', kind: 'policy', policy: null };
 
 function controlEl(id) {
   return document.getElementById(id);
 }
 
-function openControlDialog() {
+const CONTROL_KINDS = {
+  policy: {
+    eyebrow: 'Internal policy',
+    title: 'Add a custom requirement',
+    intro: 'For a rule your organisation sets for itself, such as leave, training or community service. Write it, or take it straight from your policy document.',
+    privacy: 'The document is read by the register only, to find its rules. It is not sent to an AI service or used to train any model.',
+  },
+  standard: {
+    eyebrow: 'Framework',
+    title: 'Load requirements from a standard you own',
+    intro: 'Upload your own copy of a standard, such as a purchased ISO/IEC 27001 or PCI DSS document. Choose which of its requirements to keep on this register.',
+    privacy: 'Your copy stays in this organisation only. Other organisations on the platform cannot see it, and its text is never sent to an AI service or used to train any model.',
+  },
+};
+
+function openControlDialog(kind = 'policy') {
   const form = controlEl('control-form');
   form.reset();
+  controlDraft.kind = CONTROL_KINDS[kind] ? kind : 'policy';
+  const words = CONTROL_KINDS[controlDraft.kind];
+  controlEl('control-eyebrow').textContent = words.eyebrow;
+  controlEl('control-title').textContent = words.title;
+  controlEl('control-intro').textContent = words.intro;
+  controlEl('policy-privacy').textContent = words.privacy;
+  controlEl('control-tabs').hidden = controlDraft.kind === 'standard';
+  controlEl('control-framework').hidden = controlDraft.kind !== 'standard';
   controlDraft.policy = null;
   controlEl('policy-file').value = '';
   controlEl('policy-status').innerHTML = '';
   controlEl('policy-result').hidden = true;
   controlEl('policy-drop').hidden = false;
   controlEl('control-error').hidden = true;
-  setControlMode('write');
+  setControlMode(controlDraft.kind === 'standard' ? 'document' : 'write');
   fillAssignment(form.querySelector('select[name="ownerId"]'), form.querySelector('select[name="reviewerId"]'));
   controlEl('control-dialog').showModal();
 }
@@ -3493,9 +3522,10 @@ function updateControlSummary() {
   const count = controlDraft.policy ? chosenPolicyLines().length : 0;
   submit.textContent = count > 1 ? `Add ${count} requirements` : 'Add requirement';
   submit.disabled = !count;
+  const noun = controlDraft.kind === 'standard' ? 'requirements' : 'rules';
   summary.textContent = controlDraft.policy
-    ? `${count} of ${controlDraft.policy.lines.length} rules selected`
-    : 'Choose a policy document to begin';
+    ? `${count} of ${controlDraft.policy.lines.length} ${noun} selected`
+    : (controlDraft.kind === 'standard' ? 'Choose your copy of the standard to begin' : 'Choose a policy document to begin');
   const toggle = controlEl('policy-toggle');
   if (toggle && controlDraft.policy) toggle.textContent = count === controlDraft.policy.lines.length ? 'Clear all' : 'Select all';
 }
@@ -3602,7 +3632,7 @@ function showPolicy(data) {
     <li class="er-line flex items-start gap-3 rounded-xl px-3 py-2.5">
       <input type="checkbox" checked aria-label="Add rule ${index + 1}" class="mt-1.5 h-4 w-4 shrink-0 accent-[#1860C8]" />
       <span class="mt-1 w-5 shrink-0 text-right text-xs font-medium tabular-nums text-slate-400">${index + 1}</span>
-      <textarea rows="1" maxlength="240" class="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-relaxed outline-none focus:ring-0">${escapeHtml(line)}</textarea>
+      <textarea rows="1" maxlength="400" class="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-relaxed outline-none focus:ring-0">${escapeHtml(line)}</textarea>
     </li>`).join('');
   document.querySelectorAll('#policy-lines textarea').forEach(fitLine);
   updateControlSummary();
@@ -3661,6 +3691,15 @@ controlEl('control-form').addEventListener('submit', (event) => {
       return;
     }
     body = { ...shared, requirements, sourceName: controlDraft.policy.name, sourceHash: controlDraft.policy.hash };
+    if (controlDraft.kind === 'standard') {
+      const framework = String(data.get('framework') || '').trim();
+      if (!framework) {
+        problem.textContent = 'Name the standard, for example ISO/IEC 27001.';
+        problem.hidden = false;
+        return;
+      }
+      body = { ...body, kind: 'standard', framework };
+    }
   } else {
     const requirement = String(data.get('requirement') || '').trim();
     if (!requirement) {
