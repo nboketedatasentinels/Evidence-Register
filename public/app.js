@@ -1347,8 +1347,7 @@ function renderTemplates() {
   const chosenFamilies = families.filter((family) => all.find((row) => row.family === family)?.chosen);
   const otherFamilies = families.filter((family) => !chosenFamilies.includes(family));
   return `
-    <h2 class="mt-8 text-sm font-semibold">Requirement templates</h2>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">Open a framework and add its requirements one at a time, or all at once. Adding from a framework also marks it as chosen for this organisation. The wording is a plain-language summary for you to adopt, not the text of the standard.</p>
+    <div class="mt-5"></div>
     ${chosenFamilies.map(group).join('')}
     ${otherFamilies.length ? `<p class="mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Other frameworks</p>${otherFamilies.map(group).join('')}` : ''}`;
 }
