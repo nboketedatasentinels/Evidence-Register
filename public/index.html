@@ -34,6 +34,8 @@
       .er-mode[aria-selected="true"] { background: #fff; color: #121417; box-shadow: 0 1px 2px rgba(7, 30, 54, 0.08), 0 0 0 1px #E6EAF0; }
       #policy-drop.er-over { border-color: #1860C8; background: #F3F7FD; }
       .er-line { border: 1px solid #E6EAF0; background: #fff; }
+      details[open] > summary .er-chevron { transform: rotate(90deg); }
+      summary::-webkit-details-marker { display: none; }
       .er-line:has(input:checked) { border-color: #1860C8; background: #F5F8FD; }
       .er-line:not(:has(input:checked)) textarea { color: #94A3B8; }
       .er-source { border: 1px solid #E6EAF0; background: #fff; }
@@ -467,6 +469,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=89"></script>
+    <script src="/app.js?v=90"></script>
   </body>
 </html>

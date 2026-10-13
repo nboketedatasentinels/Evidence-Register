@@ -1313,31 +1313,41 @@ function renderControls() {
 
 function renderTemplates() {
   if (state.profile !== 'admin') return '';
-  const families = [...new Set((ws().templates || []).map((template) => template.family))];
-  const groups = families.map((family) => {
-    const rows = ws().templates.filter((template) => template.family === family);
+  const all = ws().templates || [];
+  const families = [...new Set(all.map((template) => template.family))];
+  const group = (family) => {
+    const rows = all.filter((template) => template.family === family);
+    const chosen = rows[0]?.chosen;
     const open = rows.filter((template) => !template.used).length;
     const cards = rows.map((template) => `
-    <article class="rounded-xl border border-line bg-white p-4">
+    <article class="flex flex-col rounded-xl border border-line bg-white p-4">
       <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(template.family)}${template.ref ? ` · ${escapeHtml(template.ref)}` : ''}</p>
       <h2 class="mt-2 text-sm font-semibold">${escapeHtml(template.title)}</h2>
-      <p class="mt-2 text-sm leading-relaxed text-slate-600">${escapeHtml(template.requirement)}</p>
+      <p class="mt-2 flex-1 text-sm leading-relaxed text-slate-600">${escapeHtml(template.requirement)}</p>
       <p class="mt-2 text-xs text-slate-500">${escapeHtml(template.expected)} · ${escapeHtml(template.frequency)}</p>
-      <button type="button" data-use-template="${template.id}" ${template.used ? 'disabled' : ''} class="mt-4 rounded-lg px-3 py-2 text-sm font-medium ${template.used ? 'cursor-default bg-slate-100 text-slate-400' : 'bg-navy text-white'}">${template.used ? 'On the control set' : 'Use template'}</button>
+      <div><button type="button" data-use-template="${template.id}" ${template.used ? 'disabled' : ''} class="mt-4 rounded-lg px-3 py-2 text-sm font-medium ${template.used ? 'cursor-default bg-slate-100 text-slate-400' : 'bg-navy text-white'}">${template.used ? 'On the control set' : 'Use template'}</button></div>
     </article>`).join('');
     return `
-    <details class="mt-4 rounded-xl border border-line bg-[#FAFBFC] p-4">
-      <summary class="flex cursor-pointer flex-wrap items-center justify-between gap-3">
-        <span class="text-sm font-semibold">${escapeHtml(family)} <span class="font-normal text-slate-500">· ${rows.length - open} of ${rows.length} on the control set</span></span>
-        ${open ? `<button type="button" data-use-family="${escapeHtml(family)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Add all ${open}</button>` : ''}
+    <details class="mt-3 rounded-xl border border-line ${chosen ? 'bg-white' : 'bg-[#FAFBFC]'} p-4" ${chosen ? 'open' : ''}>
+      <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+        <span class="flex items-center gap-2 text-sm font-semibold">
+          <svg class="er-chevron shrink-0 text-slate-400 transition" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
+          ${escapeHtml(family)}
+          <span class="font-normal text-slate-500">· ${rows.length - open} of ${rows.length} on the control set</span>
+          ${chosen ? '<span class="rounded-full bg-[#E7EEF8] px-2 py-0.5 text-xs font-medium text-brand">Chosen</span>' : ''}
+        </span>
+        ${open ? `<button type="button" data-use-family="${escapeHtml(family)}" class="rounded-lg ${chosen ? 'bg-brand text-white' : 'border border-line bg-white text-ink'} px-3 py-1.5 text-sm font-medium">Add all ${open}</button>` : ''}
       </summary>
       <div class="mt-4 grid gap-3 lg:grid-cols-2">${cards}</div>
     </details>`;
-  }).join('');
+  };
+  const chosenFamilies = families.filter((family) => all.find((row) => row.family === family)?.chosen);
+  const otherFamilies = families.filter((family) => !chosenFamilies.includes(family));
   return `
     <h2 class="mt-8 text-sm font-semibold">Requirement templates</h2>
-    <p class="mt-2 max-w-2xl text-sm text-slate-500">These come from the frameworks chosen on the Organisation page. The wording is a plain-language summary for you to adopt. It is not the text of the standard, and a purchased standard you upload stays with this organisation.</p>
-    ${groups}`;
+    <p class="mt-2 max-w-2xl text-sm text-slate-500">Open a framework and add its requirements one at a time, or all at once. Adding from a framework also marks it as chosen for this organisation. The wording is a plain-language summary for you to adopt, not the text of the standard.</p>
+    ${chosenFamilies.map(group).join('')}
+    ${otherFamilies.length ? `<p class="mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Other frameworks</p>${otherFamilies.map(group).join('')}` : ''}`;
 }
 
 function frameworkPicker(current) {
