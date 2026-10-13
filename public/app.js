@@ -1281,7 +1281,7 @@ function renderControls() {
   const rows = controls().map((control) => `
     <tr class="border-t border-line align-top">
       <td class="whitespace-nowrap px-5 py-3 text-sm font-medium">${escapeHtml(control.id)}</td>
-      <td class="px-5 py-3 text-sm"><span class="mb-1 block text-xs font-medium text-slate-500">${escapeHtml(control.family || 'Internal policy')}${control.ref ? ` · ${escapeHtml(control.ref)}` : ''}</span>${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
+      <td class="px-5 py-3 text-sm"><span class="mb-1 block text-xs font-medium text-slate-500">${escapeHtml(control.family || 'Internal policy')}${control.ref ? ` · ${escapeHtml(control.ref)}` : ''}${control.sourceName ? ` · <span title="${escapeHtml(control.sourceHash ? `Fingerprint ${control.sourceHash}` : '')}">from ${escapeHtml(control.sourceName)}</span>` : ''}</span>${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
       <td class="px-5 py-3 text-sm">${escapeHtml(person(control.ownerId).name)}</td>
       ${reviewerCell(control)}
       <td class="px-5 py-3">${pill(control.agreed)}</td>
@@ -2969,7 +2969,7 @@ pane.addEventListener('click', (event) => {
     openEvidence(upload.dataset.control || '');
     return;
   }
-  if (event.target.id === 'open-control') document.getElementById('control-dialog').showModal();
+  if (event.target.closest('#open-control')) openControlDialog();
   const useFamily = event.target.closest('[data-use-family]');
   if (useFamily) {
     event.preventDefault();
@@ -3433,18 +3433,240 @@ document.getElementById('person-form').addEventListener('submit', (event) => {
   event.target.reset();
 });
 
-document.getElementById('control-form').addEventListener('submit', (event) => {
+// Custom requirement: written by hand, or taken from the organisation's own
+// policy document. The admin chooses which of the document's rules to add.
+const controlDraft = { mode: 'write', policy: null };
+
+function controlEl(id) {
+  return document.getElementById(id);
+}
+
+function openControlDialog() {
+  const form = controlEl('control-form');
+  form.reset();
+  controlDraft.policy = null;
+  controlEl('policy-file').value = '';
+  controlEl('policy-status').innerHTML = '';
+  controlEl('policy-result').hidden = true;
+  controlEl('policy-drop').hidden = false;
+  controlEl('control-error').hidden = true;
+  setControlMode('write');
+  fillAssignment(form.querySelector('select[name="ownerId"]'), form.querySelector('select[name="reviewerId"]'));
+  controlEl('control-dialog').showModal();
+}
+
+function setControlMode(mode) {
+  controlDraft.mode = mode;
+  document.querySelectorAll('[data-control-mode]').forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.controlMode === mode)));
+  controlEl('control-write').hidden = mode !== 'write';
+  controlEl('control-document').hidden = mode !== 'document';
+  controlEl('control-error').hidden = true;
+  updateControlSummary();
+}
+
+function chosenPolicyLines() {
+  return [...document.querySelectorAll('#policy-lines li')]
+    .filter((row) => row.querySelector('input[type="checkbox"]').checked)
+    .map((row) => row.querySelector('textarea').value.trim())
+    .filter(Boolean);
+}
+
+function updateControlSummary() {
+  const submit = controlEl('control-submit');
+  const summary = controlEl('control-summary');
+  if (controlDraft.mode === 'write') {
+    submit.textContent = 'Add requirement';
+    submit.disabled = false;
+    summary.textContent = 'Adds 1 requirement as internal policy';
+    return;
+  }
+  const count = controlDraft.policy ? chosenPolicyLines().length : 0;
+  submit.textContent = count > 1 ? `Add ${count} requirements` : 'Add requirement';
+  submit.disabled = !count;
+  summary.textContent = controlDraft.policy
+    ? `${count} of ${controlDraft.policy.lines.length} rules selected`
+    : 'Choose a policy document to begin';
+  const toggle = controlEl('policy-toggle');
+  if (toggle && controlDraft.policy) toggle.textContent = count === controlDraft.policy.lines.length ? 'Clear all' : 'Select all';
+}
+
+function policyStatus(kind, text) {
+  const tone = kind === 'error' ? 'bg-rose-50 text-rose-800' : 'bg-[#F3F7FD] text-brand';
+  const icon = kind === 'busy' ? '<span class="er-spin" aria-hidden="true"></span>' : '';
+  controlEl('policy-status').innerHTML = text ? `<p class="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium ${tone}">${icon}${escapeHtml(text)}</p>` : '';
+}
+
+let pdfReady = null;
+function loadPdfReader() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!pdfReady) {
+    pdfReady = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        resolve(window.pdfjsLib);
+      };
+      script.onerror = () => {
+        pdfReady = null;
+        reject(new Error('The PDF reader did not load. Check the connection, or use a Word file.'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return pdfReady;
+}
+
+// PDFs are turned into text in the browser, so only the words reach the register.
+async function pdfText(bytes) {
+  const pdfjs = await loadPdfReader();
+  const doc = await pdfjs.getDocument({ data: bytes }).promise;
+  const pages = [];
+  for (let number = 1; number <= Math.min(doc.numPages, 60); number += 1) {
+    const content = await (await doc.getPage(number)).getTextContent();
+    pages.push(content.items.map((item) => `${item.str}${item.hasEOL ? '\n' : ''}`).join(''));
+  }
+  return pages.join('\n');
+}
+
+function base64Of(bytes) {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function readPolicyFile(file) {
+  if (!file) return;
+  controlEl('control-error').hidden = true;
+  if (file.size > 2_500_000) {
+    policyStatus('error', 'Use a policy document under 2.5 MB.');
+    return;
+  }
+  controlDraft.policy = null;
+  controlEl('policy-result').hidden = true;
+  updateControlSummary();
+  policyStatus('busy', `Reading ${file.name}…`);
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const fileHash = [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
+    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+    const body = isPdf
+      ? { filename: file.name, fileHash, text: await pdfText(bytes) }
+      : { filename: file.name, file: base64Of(bytes) };
+    const response = await fetch('/api/loop/policy-read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'That document could not be read.');
+    showPolicy(data);
+  } catch (error) {
+    policyStatus('error', error.message || 'That document could not be read.');
+  }
+}
+
+function showPolicy(data) {
+  controlDraft.policy = data;
+  controlEl('policy-drop').hidden = true;
+  controlEl('policy-result').hidden = false;
+  controlEl('policy-name').textContent = data.name;
+  controlEl('policy-hash').textContent = data.hash ? `Fingerprint ${data.hash.slice(0, 24)}…` : 'Fingerprint not available';
+  controlEl('policy-hash').title = data.hash || '';
+  const count = data.lines.length;
+  if (!count) {
+    policyStatus('error', 'No rules were found. The register looks for lines such as "must", "shall" or "everyone". Write the requirement instead, or try another file.');
+    controlEl('policy-count').textContent = '';
+    controlEl('policy-toggle').hidden = true;
+    controlEl('policy-lines').innerHTML = '';
+    updateControlSummary();
+    return;
+  }
+  policyStatus('', '');
+  controlEl('policy-toggle').hidden = false;
+  controlEl('policy-count').textContent = `${count} ${count === 1 ? 'rule' : 'rules'} found. Untick any you do not want, and edit the wording if needed.`;
+  controlEl('policy-lines').innerHTML = data.lines.map((line, index) => `
+    <li class="er-line flex items-start gap-3 rounded-xl px-3 py-2.5">
+      <input type="checkbox" checked aria-label="Add rule ${index + 1}" class="mt-1.5 h-4 w-4 shrink-0 accent-[#1860C8]" />
+      <span class="mt-1 w-5 shrink-0 text-right text-xs font-medium tabular-nums text-slate-400">${index + 1}</span>
+      <textarea rows="1" maxlength="240" class="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-sm leading-relaxed outline-none focus:ring-0">${escapeHtml(line)}</textarea>
+    </li>`).join('');
+  document.querySelectorAll('#policy-lines textarea').forEach(fitLine);
+  updateControlSummary();
+}
+
+function fitLine(area) {
+  area.style.height = 'auto';
+  area.style.height = `${area.scrollHeight}px`;
+}
+
+document.querySelectorAll('[data-control-mode]').forEach((tab) => {
+  tab.addEventListener('click', () => setControlMode(tab.dataset.controlMode));
+});
+
+controlEl('policy-file').addEventListener('change', (event) => readPolicyFile(event.target.files?.[0]));
+
+const policyDrop = controlEl('policy-drop');
+['dragenter', 'dragover'].forEach((name) => policyDrop.addEventListener(name, (event) => {
+  event.preventDefault();
+  policyDrop.classList.add('er-over');
+}));
+['dragleave', 'drop'].forEach((name) => policyDrop.addEventListener(name, (event) => {
+  event.preventDefault();
+  policyDrop.classList.remove('er-over');
+}));
+policyDrop.addEventListener('drop', (event) => readPolicyFile(event.dataTransfer?.files?.[0]));
+
+controlEl('policy-lines').addEventListener('change', updateControlSummary);
+controlEl('policy-lines').addEventListener('input', (event) => {
+  if (event.target.matches('textarea')) fitLine(event.target);
+  updateControlSummary();
+});
+controlEl('policy-toggle').addEventListener('click', () => {
+  const boxes = [...document.querySelectorAll('#policy-lines input[type="checkbox"]')];
+  const all = boxes.every((box) => box.checked);
+  boxes.forEach((box) => { box.checked = !all; });
+  updateControlSummary();
+});
+
+controlEl('control-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const data = new FormData(event.target);
-  document.getElementById('control-dialog').close();
-  post('/api/loop/controls', {
-    requirement: data.get('requirement'),
+  const problem = controlEl('control-error');
+  const shared = {
     expected: data.get('expected'),
     frequency: data.get('frequency'),
     ownerId: data.get('ownerId'),
     reviewerId: data.get('reviewerId'),
-  });
-  event.target.reset();
+  };
+  let body;
+  if (controlDraft.mode === 'document') {
+    const requirements = chosenPolicyLines();
+    if (!controlDraft.policy || !requirements.length) {
+      problem.textContent = 'Choose a policy document and keep at least one rule ticked.';
+      problem.hidden = false;
+      return;
+    }
+    body = { ...shared, requirements, sourceName: controlDraft.policy.name, sourceHash: controlDraft.policy.hash };
+  } else {
+    const requirement = String(data.get('requirement') || '').trim();
+    if (!requirement) {
+      problem.textContent = 'Write the requirement.';
+      problem.hidden = false;
+      return;
+    }
+    body = { ...shared, requirement };
+  }
+  if (!shared.ownerId) {
+    problem.textContent = 'Choose an owner.';
+    problem.hidden = false;
+    return;
+  }
+  controlEl('control-dialog').close();
+  post('/api/loop/controls', body);
 });
 
 async function authenticate(url, form) {

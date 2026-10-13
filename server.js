@@ -109,6 +109,7 @@ app.get('/api/loop/evidence/:id/file', action((body, req) => loop.openFile({ ...
 app.post('/api/loop/evidence', action((body) => loop.addEvidence(body)));
 app.post('/api/loop/sign-evidence', action((body) => loop.signEvidence(body)));
 app.post('/api/loop/controls', action((body) => loop.addControl(body)));
+app.post('/api/loop/policy-read', action((body) => loop.readPolicy(body)));
 app.post('/api/loop/templates', action((body) => loop.applyTemplate(body)));
 app.post('/api/loop/fix', action((body) => loop.submitFix(body)));
 app.post('/api/loop/verify', action((body) => loop.verify(body)));
