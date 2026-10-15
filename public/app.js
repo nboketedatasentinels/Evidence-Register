@@ -1234,7 +1234,7 @@ function renderOrganisation() {
       ${fact('Industry', org.industry || 'Not set')}
       ${fact('Framework', org.framework)}
     </div>
-    <p class="mt-3 text-sm text-slate-500">${org.reminders ? 'Reminders are on. The choice is stored. No email is sent.' : 'Reminders are off.'}</p>
+    <p class="mt-3 text-sm text-slate-500">${org.reminders ? 'Reminders are on. Each owner gets one reminder a day, in the app and by email, until evidence is submitted for every requirement they own.' : 'Reminders are off. Owners are not reminded about requirements that still need evidence.'}</p>
     <h2 class="mb-1 mt-8 text-sm font-semibold">Structure</h2>
     ${departmentTree(org.departments || [])}
     <form id="unit-form" class="mt-4 flex flex-wrap items-end gap-2">

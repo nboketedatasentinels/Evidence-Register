@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const express = require('express');
 const path = require('path');
 const db = require('./lib/db');
@@ -127,6 +128,20 @@ app.post('/api/loop/invite-email', action((body) => loop.sendInvitationEmail(bod
 app.post('/api/loop/people-import', action((body) => loop.importPeople(body)));
 app.post('/api/loop/invite-pen', action((body) => loop.setInvitePen(body)));
 app.post('/api/loop/acknowledge', action((body) => loop.acknowledge(body)));
+
+// Vercel Cron calls this once a day and sends CRON_SECRET as the bearer token.
+function cronAllowed(req) {
+  const secret = String(process.env.CRON_SECRET || '').trim();
+  if (!secret) fail(500, 'Set CRON_SECRET to run reminders.');
+  const given = Buffer.from(bearer(req));
+  const wanted = Buffer.from(secret);
+  if (given.length !== wanted.length || !crypto.timingSafeEqual(given, wanted)) fail(401, 'Not allowed.');
+}
+
+app.get('/api/cron/reminders', (req, res) => loopResult(res, async () => {
+  cronAllowed(req);
+  return loop.remindAll(publicOrigin(req));
+}));
 
 app.post('/api/operator/login', (req, res) => loopResult(res, () => loop.operatorLogin(req.body)));
 app.get('/api/operator/overview', (req, res) => loopResult(res, async () => {
