@@ -1423,7 +1423,7 @@ function submissionReceipt(item) {
         <div>
           <p class="text-xs font-medium uppercase tracking-[0.14em] text-[#1860C8]">${signed ? 'Evidence submitted' : 'Sign to send'}</p>
           <h2 class="mt-1 text-xl font-semibold tracking-tight">${escapeHtml(item.name)}</h2>
-          <p class="mt-2 text-sm leading-relaxed text-[#163A66]">${escapeHtml(headline)}${signed ? ' The notification is in their Evidence Register queue.' : ''}</p>
+          <p class="mt-2 text-sm leading-relaxed text-[#163A66]">${escapeHtml(headline)}${signed ? ' The notification is in their Compliance Agent queue.' : ''}</p>
         </div>
       </div>
       <dl class="grid gap-4 px-6 py-5 text-sm sm:grid-cols-2">
@@ -1441,7 +1441,7 @@ function submissionReceipt(item) {
         <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-slate-600">
           ${signed
             ? `<li>The evidence is on record, with its fingerprint and version.</li><li>${escapeHtml(reviewer)} reviews the evidence and the assessment.</li><li>${escapeHtml(reviewer)} makes the final decision.</li>`
-            : `<li>Draw your signature below.</li><li>${escapeHtml(reviewer)} is notified in Evidence Register.</li><li>${escapeHtml(reviewer)} reviews the evidence and makes the final decision.</li>`}
+            : `<li>Draw your signature below.</li><li>${escapeHtml(reviewer)} is notified in Compliance Agent.</li><li>${escapeHtml(reviewer)} reviews the evidence and makes the final decision.</li>`}
         </ol>
       </div>
       ${footer}
@@ -2347,17 +2347,17 @@ function paintChrome() {
   const who = actor();
   const named = who.name && who.name !== 'Unassigned' ? who.name : '';
   const sidePerson = document.getElementById('side-person');
-  if (sidePerson) sidePerson.textContent = named || 'Evidence Register';
+  if (sidePerson) sidePerson.textContent = named || 'Compliance Agent';
   const sideMark = document.getElementById('side-mark');
-  if (sideMark) sideMark.textContent = named ? initials(named) : 'ER';
+  if (sideMark) sideMark.textContent = named ? initials(named) : 'CA';
   document.getElementById('profile-note').textContent = signedInAs(who);
   document.getElementById('signed-name').textContent = named;
   const headerMark = document.getElementById('header-mark');
-  if (headerMark) headerMark.textContent = named ? initials(named) : 'ER';
+  if (headerMark) headerMark.textContent = named ? initials(named) : 'CA';
   const headerRole = document.getElementById('header-role');
   if (headerRole) headerRole.textContent = signedInAs(who);
   const helloTitle = document.getElementById('hello-title');
-  if (helloTitle) helloTitle.textContent = named ? greeting() : 'Evidence Register';
+  if (helloTitle) helloTitle.textContent = named ? greeting() : 'Compliance Agent';
   const helloBand = document.getElementById('hello-band');
   const onHome = state.page === 'dashboard' && state.profile !== 'admin';
   if (helloBand) helloBand.hidden = !onHome;

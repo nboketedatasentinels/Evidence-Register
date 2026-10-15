@@ -1,8 +1,8 @@
 {
-  "name": "evidence-register-t4l",
+  "name": "compliance-agent-t4l",
   "version": "1.0.0",
   "private": true,
-  "description": "AIMS evidence register for the T4L advisory grading system",
+  "description": "AIMS compliance agent for the T4L advisory grading system",
   "scripts": {
     "start": "node server.js",
     "operator": "node scripts/create-operator.js"

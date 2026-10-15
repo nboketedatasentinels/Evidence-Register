@@ -1,9 +1,9 @@
-# AI System Impact Assessment — Evidence Register
+# AI System Impact Assessment — Compliance Agent
 
 **Document status:** DRAFT  
 **Document ID:** FRM-ER-001 (working draft)  
-**System name:** Data Sentinels Evidence Register  
-**Short name:** Evidence register  
+**System name:** Data Sentinels Compliance Agent  
+**Short name:** Compliance agent  
 **Organisation:** Data Sentinels / Transformation Leader (T4L)  
 **System owner:** Unassigned  
 **Version:** 0.1 Draft  
@@ -19,7 +19,7 @@ The same draft is shown in the register on Impact. Opening it there does not sig
 | Field | Value |
 |-------|--------|
 | Assessment type | AI system impact assessment |
-| Scope | The evidence register used to check a control set against an evidence folder |
+| Scope | The compliance agent used to check a control set against an evidence folder |
 | Out of scope | T4L advisory grading, Oil Lab, anomaly detection, Celo, and any tool that writes the missing document |
 | Lifecycle stage | Design, with a local demonstration already running |
 | Next review | Before the register is used on a live client pack, and after any change to how a verdict is reached |

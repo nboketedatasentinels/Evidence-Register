@@ -1,4 +1,4 @@
-# Evidence Register
+# Compliance Agent
 
 A pre-audit check for Data Sentinels. Load a control set, point at an evidence folder, and read which lines are met, partial, not met, or have no evidence.
 

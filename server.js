@@ -155,7 +155,7 @@ app.post('/api/operator/organisations/:id/invitations/:invitationId/resend', ope
 
 db.init().then(() => {
   app.listen(PORT, () => {
-    console.log(`Evidence Register T4L running at http://localhost:${PORT}`);
+    console.log(`Compliance Agent T4L running at http://localhost:${PORT}`);
   });
 }).catch((error) => {
   console.error(error.message || error);

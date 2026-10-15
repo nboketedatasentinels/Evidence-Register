@@ -1,4 +1,4 @@
--- Multitenancy for the Evidence Register.
+-- Multitenancy for the Compliance Agent.
 --
 -- Run once in the Supabase SQL editor, after register.sql. Back up first.
 --
