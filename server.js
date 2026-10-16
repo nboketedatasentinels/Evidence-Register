@@ -117,6 +117,21 @@ app.post('/api/loop/verify', action((body) => loop.verify(body)));
 app.post('/api/loop/notifications/read', action((body) => loop.readNotification(body)));
 app.post('/api/loop/organisation', action((body) => loop.setOrganisation(body)));
 app.post('/api/loop/reminders', action((body) => loop.setReminders(body)));
+app.post('/api/loop/deadlines', action((body) => loop.setDeadlines(body)));
+app.post('/api/loop/evidence-due', action((body) => loop.setEvidenceDue(body)));
+app.get('/api/loop/report', (req, res) => {
+  Promise.resolve()
+    .then(async () => {
+      const body = await actorBody(req);
+      return db.withOrganisation(body.organisationId, () => loop.complianceReport(body));
+    })
+    .then(({ buffer, filename }) => {
+      res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.set('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+    })
+    .catch((error) => res.status(error.status || 500).json({ error: error.message }));
+});
 app.post('/api/loop/people', action((body) => loop.addPerson(body)));
 app.post('/api/loop/roles', action((body) => loop.setRoles(body)));
 app.post('/api/loop/units', action((body) => loop.addUnit(body)));

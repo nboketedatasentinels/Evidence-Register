@@ -33,6 +33,14 @@ npm run operator -- name@data-sentinels.com
 
 Run these in the Supabase SQL editor, in order, once each: `supabase/register.sql`, then `supabase/tenancy.sql`, then `supabase/operator.sql`, then `supabase/reviews.sql`. Do not run `register.sql` again after `tenancy.sql`, because it would bring back the old single-organisation save.
 
+Later changes each come with their own file, run once in this order: `decisions.sql`, `history.sql`, `policy-source.sql`, `control-framework.sql`, then `deadlines.sql`. Until `deadlines.sql` is run, the app still works but refuses to save evidence due dates and review or ticket days.
+
+## Reminders, deadlines and the report
+
+- A job runs every hour (`vercel.json`) and calls `/api/cron/reminders` with `CRON_SECRET`. Each person gets at most one reminder a day, in the app and by email: owners for requirements with no submitted evidence or with evidence past its review date, reviewers for submissions waiting on them, and admins a summary of anything past a deadline.
+- Admins set an evidence due date per requirement, how many days reviewers have to decide, and how long fix tickets stay open.
+- Admins and reviewers can download the compliance report as an Excel workbook.
+
 The T4L grading AIMS pack is loaded as the worked example. A control file can replace it. One row per line:
 
 ```text

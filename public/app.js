@@ -411,7 +411,10 @@ function renderDashboard() {
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(ws().organisation.framework)}</p>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">${escapeHtml(orgName())}</h1>
       </div>
-      <p class="text-sm text-slate-500"><span class="font-medium text-ink">${escapeHtml(registerSummary())}</span>${all.length ? ` · ${withFile} have a file` : ''}</p>
+      <div class="flex flex-wrap items-center gap-3">
+        <p class="text-sm text-slate-500"><span class="font-medium text-ink">${escapeHtml(registerSummary())}</span>${all.length ? ` · ${withFile} have a file` : ''}</p>
+        ${reportButton()}
+      </div>
     </div>
     <div class="mt-5 grid overflow-hidden rounded-xl border border-line bg-white sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-line">${stats}</div>
     <div class="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -422,6 +425,7 @@ function renderDashboard() {
           <div class="flex justify-between gap-4"><dt class="text-slate-500">Waiting for review</dt><dd class="font-medium">${waitingReviews().length}</dd></div>
           <div class="flex justify-between gap-4"><dt class="text-slate-500">Open tickets</dt><dd class="font-medium">${openTickets().length}</dd></div>
           <div class="flex justify-between gap-4"><dt class="text-slate-500">No evidence</dt><dd class="font-medium">${all.filter((control) => control.agreed === 'NO EVIDENCE').length}</dd></div>
+          <div class="flex justify-between gap-4"><dt class="text-slate-500">Decisions overdue</dt><dd class="font-medium">${all.filter((control) => control.reviewLate).length}</dd></div>
           <div class="flex justify-between gap-4"><dt class="text-slate-500">Reminders</dt><dd class="font-medium">${ws().organisation.reminders ? 'On' : 'Off'}</dd></div>
         </dl>
         <button type="button" data-go="tickets" class="mt-5 text-sm font-medium text-brand">See tickets</button>
@@ -754,6 +758,12 @@ function renderUploaderHome() {
       late: Boolean(ticket.due && ticket.due < day),
       go: 'tickets',
     })),
+    ...all.filter((control) => control.ownerId === state.actorId && control.evidenceDue && !control.evidenceIn && control.evidenceDue <= soon).map((control) => ({
+      title: `${control.id} · ${controlTitle(control)}`,
+      meta: control.evidenceLate ? `Evidence overdue · ${control.evidenceDue}` : `Evidence due ${control.evidenceDue}`,
+      late: control.evidenceLate,
+      go: 'upload',
+    })),
     ...mine.filter((item) => item.reviewDue && item.reviewDue <= soon).map((item) => ({
       title: item.name,
       meta: item.reviewDue < day ? `Review date passed · ${item.reviewDue}` : `Review ${item.reviewDue}`,
@@ -986,8 +996,13 @@ function renderAdminHome() {
   pane.innerHTML = `
     ${banner()}
     ${noteCards()}
-    <h1 class="text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
-    <p class="mt-1 text-sm font-medium">${escapeHtml(registerSummary())}</p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">${escapeHtml(org.name || 'Establish the organisation')}</h1>
+        <p class="mt-1 text-sm font-medium">${escapeHtml(registerSummary())}</p>
+      </div>
+      ${reportButton()}
+    </div>
     <p class="mt-2 max-w-3xl text-sm text-slate-500">This page records who the organisation is, how it is structured, and who may own or review a requirement. People confirm their own name and email when they sign up. Saving this does not create evidence or tickets, and it does not approve a file.</p>
     <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       ${fact('Frameworks', org.framework || 'Internal policy')}
@@ -1234,6 +1249,19 @@ function renderOrganisation() {
       ${fact('Industry', org.industry || 'Not set')}
       ${fact('Framework', org.framework)}
     </div>
+    <form id="deadline-form" class="mt-6 rounded-xl border border-line bg-white p-5">
+      <h2 class="text-sm font-semibold">Deadlines</h2>
+      <p class="mt-1 max-w-3xl text-sm text-slate-500">How long a reviewer has to decide once evidence is sent to them, and how long a fix ticket stays open before it is overdue. Each requirement can also have its own evidence due date on the Requirements page. Admins get one summary a day of anything past a deadline.</p>
+      <div class="mt-4 flex flex-wrap items-end gap-3">
+        <label class="text-sm font-medium">Reviewers decide within (days)
+          <input name="reviewDays" type="number" min="1" max="90" required value="${escapeHtml(String(org.reviewDays || 5))}" class="mt-1 block w-40 rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        </label>
+        <label class="text-sm font-medium">Fix tickets are due after (days)
+          <input name="ticketDays" type="number" min="1" max="365" required value="${escapeHtml(String(org.ticketDays || 28))}" class="mt-1 block w-40 rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
+        </label>
+        <button type="submit" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Save deadlines</button>
+      </div>
+    </form>
     <p class="mt-3 text-sm text-slate-500">${org.reminders ? 'Reminders are on. Once a day, in the app and by email, owners are reminded of requirements with no evidence, and reviewers of evidence waiting for their decision.' : 'Reminders are off. Nobody is reminded about missing evidence or reviews.'}</p>
     <h2 class="mb-1 mt-8 text-sm font-semibold">Structure</h2>
     ${departmentTree(org.departments || [])}
@@ -1272,7 +1300,63 @@ function chainCell(label, title, detail) {
   return `<div class="rounded-xl border border-line bg-white px-4 py-3"><p class="text-xs text-slate-500">${escapeHtml(label)}</p><p class="mt-1 text-sm font-semibold">${escapeHtml(title)}</p><p class="mt-1 text-xs leading-relaxed text-slate-500">${escapeHtml(detail)}</p></div>`;
 }
 
+// The deadline lines under a requirement: evidence due, decision due, review date passed.
+function deadlineNote(control) {
+  const lines = [];
+  if (control.evidenceLate) lines.push(['text-rose-700', `Evidence overdue since ${control.evidenceDue}`]);
+  else if (control.evidenceDue && !control.evidenceIn) lines.push(['text-slate-500', `Evidence due by ${control.evidenceDue}`]);
+  if (control.reviewLate) lines.push(['text-rose-700', `Decision overdue since ${control.reviewBy}`]);
+  else if (control.reviewBy) lines.push(['text-slate-500', `Reviewer decides by ${control.reviewBy}`]);
+  if (control.renewSince) lines.push(['text-amber-700', `Past its review date since ${control.renewSince}. A current version is needed`]);
+  return lines.map(([tone, text]) => `<span class="mt-1 block text-xs font-medium ${tone}">${escapeHtml(text)}</span>`).join('');
+}
+
+function reportButton() {
+  if (state.profile !== 'admin' && state.profile !== 'reviewer') return '';
+  return `<button type="button" data-download-report class="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-medium hover:bg-mist disabled:opacity-60"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>Download report</button>`;
+}
+
+async function downloadReport(button) {
+  const label = button.innerHTML;
+  button.disabled = true;
+  button.textContent = 'Preparing report…';
+  try {
+    const response = await fetch('/api/loop/report', { headers: { Authorization: `Bearer ${token()}` } });
+    if (response.status === 401) {
+      sessionStorage.removeItem(sessionKey());
+      showAuth('Sign in to continue.');
+      return;
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'The report did not download. Try again.');
+    }
+    const blob = await response.blob();
+    const name = (response.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'compliance-report.xlsx';
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    state.error = '';
+    state.flash = `${name} has downloaded.`;
+  } catch (error) {
+    state.flash = '';
+    state.error = error.message;
+  }
+  button.disabled = false;
+  button.innerHTML = label;
+  render();
+}
+
 function renderControls() {
+  const dueCell = (control) => {
+    if (state.profile !== 'admin') return `<td class="whitespace-nowrap px-5 py-3 text-sm">${escapeHtml(control.evidenceDue || '—')}</td>`;
+    return `<td class="px-5 py-3"><input type="date" data-evidence-due="${escapeHtml(control.id)}" value="${escapeHtml(control.evidenceDue || '')}" aria-label="Evidence for ${escapeHtml(control.id)} is due by" class="rounded-lg border border-line bg-white px-2 py-1.5 text-sm" /></td>`;
+  };
   const reviewerCell = (control) => {
     if (state.profile !== 'admin') return `<td class="px-5 py-3 text-sm">${escapeHtml(person(control.reviewerId).name)}</td>`;
     const options = people().filter((row) => holds(row, 'reviewer')).map((row) => `<option value="${row.id}" ${row.id === control.reviewerId ? 'selected' : ''}>${escapeHtml(row.name)}</option>`).join('');
@@ -1281,9 +1365,10 @@ function renderControls() {
   const rows = controls().map((control) => `
     <tr class="border-t border-line align-top">
       <td class="whitespace-nowrap px-5 py-3 text-sm font-medium">${escapeHtml(control.id)}</td>
-      <td class="px-5 py-3 text-sm"><span class="mb-1 block text-xs font-medium text-slate-500">${escapeHtml(control.family || 'Internal policy')}${control.ref ? ` · ${escapeHtml(control.ref)}` : ''}${control.sourceName ? ` · <span title="${escapeHtml(control.sourceHash ? `Fingerprint ${control.sourceHash}` : '')}">from ${escapeHtml(control.sourceName)}</span>` : ''}</span>${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span></td>
+      <td class="px-5 py-3 text-sm"><span class="mb-1 block text-xs font-medium text-slate-500">${escapeHtml(control.family || 'Internal policy')}${control.ref ? ` · ${escapeHtml(control.ref)}` : ''}${control.sourceName ? ` · <span title="${escapeHtml(control.sourceHash ? `Fingerprint ${control.sourceHash}` : '')}">from ${escapeHtml(control.sourceName)}</span>` : ''}</span>${escapeHtml(control.requirement)}<span class="mt-1 block text-xs text-slate-500">${escapeHtml(control.expected)} · ${escapeHtml(control.frequency)}</span>${deadlineNote(control)}</td>
       <td class="px-5 py-3 text-sm">${escapeHtml(person(control.ownerId).name)}</td>
       ${reviewerCell(control)}
+      ${dueCell(control)}
       <td class="px-5 py-3">${pill(control.agreed)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${control.evidenceIds.length ? control.evidenceIds.length : 'None'}</td>
       ${state.profile === 'uploader' ? `<td class="px-5 py-3"><button type="button" data-open-evidence data-control="${escapeHtml(control.id)}" class="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white">Upload</button></td>` : ''}
@@ -1300,7 +1385,9 @@ function renderControls() {
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">Requirements</h1>
         <p class="mt-2 max-w-2xl text-sm text-slate-500">${escapeHtml(intro)}</p>
       </div>
+      ${state.profile === 'reviewer' ? `<div class="flex flex-wrap gap-2">${reportButton()}</div>` : ''}
       ${state.profile === 'admin' ? `<div class="flex flex-wrap gap-2">
+        ${reportButton()}
         <button type="button" id="open-standard" class="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-medium hover:bg-mist"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/></svg>Load from a standard you own</button>
         <button type="button" id="open-control" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Custom requirement</button>
       </div>` : ''}
@@ -1308,8 +1395,8 @@ function renderControls() {
     ${renderTemplates()}
     <div class="mt-5 overflow-hidden rounded-xl border border-line bg-white">
       <table class="w-full text-left">
-        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3 font-medium">Requirement</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Reviewer</th><th class="px-5 py-3 font-medium">Agreed</th><th class="px-5 py-3 font-medium">Files</th>${state.profile === 'uploader' ? '<th class="px-5 py-3"></th>' : ''}</tr></thead>
-        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 7 : 6}" class="px-5 py-8 text-sm text-slate-500">${(ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`}</td></tr>`}</tbody>
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3 font-medium">Control</th><th class="px-5 py-3 font-medium">Requirement</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Reviewer</th><th class="px-5 py-3 font-medium">Evidence due</th><th class="px-5 py-3 font-medium">Agreed</th><th class="px-5 py-3 font-medium">Files</th>${state.profile === 'uploader' ? '<th class="px-5 py-3"></th>' : ''}</tr></thead>
+        <tbody>${rows || `<tr><td colspan="${state.profile === 'uploader' ? 8 : 7}" class="px-5 py-8 text-sm text-slate-500">${(ws().controls || []).length ? 'Nothing matches.' : `No ${escapeHtml(framework)} requirement is on the register yet.`}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -2058,6 +2145,7 @@ function reviewCard(control) {
         <div>
           <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(control.id)} · ${escapeHtml(judgement.quality)} evidence</p>
           <h2 class="mt-1 text-lg font-semibold">${escapeHtml(control.requirement)}</h2>
+          ${control.reviewBy ? `<p class="mt-1 text-xs font-medium ${control.reviewLate ? 'text-rose-700' : 'text-slate-500'}">${control.reviewLate ? `Decision overdue since ${escapeHtml(control.reviewBy)}` : `Decide by ${escapeHtml(control.reviewBy)}`}</p>` : ''}
         </div>
         <div class="text-right">${judgement.graded ? '<p class="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Suggested mark</p>' : ''}${pill(judgement.status)}</div>
       </div>
@@ -2984,6 +3072,11 @@ pane.addEventListener('click', (event) => {
     return;
   }
   if (event.target.closest('#open-control')) openControlDialog('policy');
+  const reportButtonEl = event.target.closest('[data-download-report]');
+  if (reportButtonEl) {
+    downloadReport(reportButtonEl);
+    return;
+  }
   if (event.target.closest('#open-standard')) openControlDialog('standard');
   const useFamily = event.target.closest('[data-use-family]');
   if (useFamily) {
@@ -2995,6 +3088,7 @@ pane.addEventListener('click', (event) => {
     document.getElementById('template-requirement').textContent = open.map((row) => row.title).join(' · ');
     document.querySelector('#template-form [name="templateId"]').value = '';
     document.querySelector('#template-form [name="family"]').value = family;
+    document.querySelector('#template-form [name="evidenceDue"]').value = '';
     paintChrome();
     document.getElementById('template-dialog').showModal();
     return;
@@ -3008,6 +3102,7 @@ pane.addEventListener('click', (event) => {
     document.getElementById('template-requirement').textContent = template.requirement;
     document.querySelector('#template-form [name="templateId"]').value = template.id;
     document.querySelector('#template-form [name="family"]').value = '';
+    document.querySelector('#template-form [name="evidenceDue"]').value = '';
     paintChrome();
     document.getElementById('template-dialog').showModal();
   }
@@ -3083,6 +3178,12 @@ pane.addEventListener('submit', (event) => {
       emailDomain: data.get('emailDomain'),
       frameworks: data.getAll('frameworks'),
     });
+    return;
+  }
+  if (event.target.id === 'deadline-form') {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    post('/api/loop/deadlines', { reviewDays: Number(data.get('reviewDays')), ticketDays: Number(data.get('ticketDays')) });
     return;
   }
   if (event.target.id === 'unit-form') {
@@ -3181,6 +3282,11 @@ pane.addEventListener('change', (event) => {
       manager.innerHTML = `<option value="">Nobody</option>${people().filter((item) => item.id !== row.id).map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join('')}`;
       manager.value = row.managerId && row.managerId !== row.id ? row.managerId : '';
     }
+    return;
+  }
+  const dueInput = event.target.closest('[data-evidence-due]');
+  if (dueInput) {
+    post('/api/loop/evidence-due', { controlId: dueInput.dataset.evidenceDue, evidenceDue: dueInput.value });
     return;
   }
   const select = event.target.closest('[data-assign-reviewer]');
@@ -3680,6 +3786,7 @@ controlEl('control-form').addEventListener('submit', (event) => {
     frequency: data.get('frequency'),
     ownerId: data.get('ownerId'),
     reviewerId: data.get('reviewerId'),
+    evidenceDue: data.get('evidenceDue') || '',
   };
   let body;
   if (controlDraft.mode === 'document') {
@@ -3876,6 +3983,7 @@ document.getElementById('template-form').addEventListener('submit', (event) => {
     family: data.get('family'),
     ownerId: data.get('ownerId'),
     reviewerId: data.get('reviewerId'),
+    evidenceDue: data.get('evidenceDue') || '',
   });
 });
 
