@@ -33,12 +33,14 @@ const NAVS = {
     ['dashboard', 'Queue', icon('grid')],
     ['review', 'Review', icon('check')],
     ['evidence', 'Evidence', icon('file')],
+    ['systems', 'AI systems', icon('chip')],
     ['tickets', 'Tickets', icon('ticket')],
     ['history', 'History', icon('clock')],
   ],
   admin: [
     ['dashboard', 'Setup', icon('grid')],
     ['organisation', 'Organisation', icon('people')],
+    ['systems', 'AI systems', icon('chip')],
     ['people', 'People', icon('people')],
     ['controls', 'Controls', icon('list')],
     ['feedback', 'Reviewer decisions', icon('check')],
@@ -91,6 +93,7 @@ const state = {
   invite: null,
   resetToken: '',
   busyAt: 0,
+  systemEdit: '',
 };
 
 const pane = document.getElementById('pane');
@@ -114,6 +117,7 @@ function icon(name) {
     ticket: '<path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/>',
     upload: '<path d="M12 16V5"/><path d="M7 9l5-5 5 5"/><path d="M5 19h14"/>',
+    chip: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M10 10h4v4h-4zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
     user: '<circle cx="12" cy="8" r="3"/><path d="M5 19c.8-3 3.2-4.5 7-4.5s6.2 1.5 7 4.5"/>',
   };
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
@@ -1108,15 +1112,10 @@ function renderAdminHome() {
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
       <h2 class="text-sm font-semibold">Governance scope</h2>
-      <p class="mt-1 text-sm text-slate-500">Name the AI systems this register covers. Locations in the identity above are the places in scope. The register does not assume every system or department is in scope.</p>
+      <p class="mt-1 text-sm text-slate-500">The AI systems this register covers. Locations in the identity above are the places in scope. The register does not assume every system or department is in scope.</p>
       <ul class="mt-3 space-y-1 text-sm">${systems.map((name) => `<li>${escapeHtml(name)}</li>`).join('') || '<li class="text-slate-500">No AI system is listed yet.</li>'}</ul>
       <p class="mt-3 text-sm text-slate-600">Locations: ${escapeHtml((org.locations || []).join(', ') || 'Not set')}</p>
-      <form id="system-form" class="mt-4 flex flex-wrap items-end gap-2">
-        <label class="text-sm font-medium">AI system in scope
-          <input name="name" required maxlength="120" placeholder="Customer support assistant" class="mt-1 block rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand" />
-        </label>
-        <button type="submit" class="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Add to scope</button>
-      </form>
+      <button type="button" data-go="systems" class="mt-4 rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Open the AI System Register</button>
     </section>
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
@@ -2343,11 +2342,130 @@ function renderPeople() {
     </div>`;
 }
 
+const SYSTEM_STATUS = {
+  approved: ['Approved', 'bg-emerald-50 text-emerald-800'],
+  'review-due': ['Review due', 'bg-amber-50 text-amber-900'],
+  action: ['Action open', 'bg-orange-50 text-orange-800'],
+  'no-evidence': ['No evidence', 'bg-rose-50 text-rose-800'],
+  unlinked: ['No requirement linked', 'bg-slate-100 text-slate-600'],
+};
+
+const SYSTEM_RISK = {
+  high: ['High', 'bg-rose-50 text-rose-800'],
+  medium: ['Medium', 'bg-amber-50 text-amber-900'],
+  low: ['Low', 'bg-emerald-50 text-emerald-800'],
+  unrated: ['Not rated', 'bg-slate-100 text-slate-600'],
+};
+
+function tag([label, tone]) {
+  return `<span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function systemForm(row) {
+  const chosen = new Set(row?.controlIds || []);
+  const field = 'mt-1 block w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand';
+  const owners = people().map((item) => `<option value="${escapeHtml(item.id)}" ${row?.ownerId === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
+  const risks = Object.keys(SYSTEM_RISK).map((key) => `<option value="${key}" ${(row?.risk || 'unrated') === key ? 'selected' : ''}>${SYSTEM_RISK[key][0]}</option>`).join('');
+  const controls = (ws().controls || []).map((control) => `
+    <label class="flex items-start gap-2 py-1 text-sm font-normal">
+      <input type="checkbox" name="controlIds" value="${escapeHtml(control.id)}" ${chosen.has(control.id) ? 'checked' : ''} class="mt-1" />
+      <span><span class="font-medium">${escapeHtml(control.id)}</span> · ${escapeHtml(controlTitle(control))}</span>
+    </label>`).join('');
+  return `
+    <form data-system-form="${row ? escapeHtml(row.name) : ''}" class="grid gap-4 sm:grid-cols-2">
+      ${row
+        ? `<input type="hidden" name="name" value="${escapeHtml(row.name)}" />`
+        : `<label class="text-sm font-medium">AI system
+            <input name="name" required maxlength="120" placeholder="Customer chatbot" class="${field}" />
+          </label>`}
+      <label class="text-sm font-medium">What it does
+        <input name="purpose" maxlength="300" value="${escapeHtml(row?.purpose || '')}" placeholder="Answers customer questions on the website" class="${field}" />
+      </label>
+      <label class="text-sm font-medium">Owner
+        <select name="ownerId" class="${field}"><option value="">Not set</option>${owners}</select>
+      </label>
+      <label class="text-sm font-medium">Risk
+        <select name="risk" class="${field}">${risks}</select>
+      </label>
+      <fieldset class="sm:col-span-2">
+        <legend class="text-sm font-medium">Requirements that cover it</legend>
+        <p class="mt-1 text-xs text-slate-500">Its status comes from these. It reads Approved only when a reviewer has confirmed every one.</p>
+        <div class="mt-2 max-h-56 overflow-y-auto rounded-lg border border-line px-3 py-2">${controls || '<p class="py-1 text-sm text-slate-500">No requirement is on the control set yet.</p>'}</div>
+      </fieldset>
+      <div class="flex flex-wrap gap-2 sm:col-span-2">
+        <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-[#1860C8] px-3.5 py-2 text-sm font-medium text-white disabled:opacity-70">${row ? 'Save' : 'Add AI system'}</button>
+        <button type="button" data-system-cancel class="rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-medium">Cancel</button>
+      </div>
+    </form>`;
+}
+
+function renderSystems() {
+  const rows = ws().systems || [];
+  const admin = state.profile === 'admin';
+  const linked = new Set(rows.flatMap((row) => row.controlIds));
+  const met = (ws().controls || []).filter((control) => linked.has(control.id) && control.agreed === 'MET').length;
+  const complete = linked.size ? `${Math.round((met / linked.size) * 100)}%` : '—';
+  const stats = [
+    [rows.length, rows.length === 1 ? 'AI system listed' : 'AI systems listed'],
+    [rows.filter((row) => row.status !== 'approved').length, 'need action'],
+    [complete, 'evidence complete'],
+  ].map(([value, label]) => `
+    <div class="px-5 py-4">
+      <p class="text-2xl font-semibold tracking-tight">${escapeHtml(value)}</p>
+      <p class="mt-1 text-sm text-slate-500">${escapeHtml(label)}</p>
+    </div>`).join('');
+  const body = rows.filter((row) => matches(`${row.name} ${row.purpose} ${person(row.ownerId).name}`)).map((row) => {
+    if (admin && state.systemEdit === row.name) {
+      return `<tr class="border-t border-line"><td colspan="6" class="px-5 py-4">${systemForm(row)}</td></tr>`;
+    }
+    const actions = admin
+      ? `<td class="px-5 py-3 text-right text-sm whitespace-nowrap">
+          <button type="button" data-system-edit="${escapeHtml(row.name)}" class="font-medium text-[#1860C8]">Edit</button>
+          <button type="button" data-system-remove="${escapeHtml(row.name)}" class="ml-3 font-medium text-slate-500">Remove</button>
+        </td>`
+      : '';
+    return `
+      <tr class="border-t border-line align-top">
+        <td class="px-5 py-3 text-sm font-medium">${escapeHtml(row.name)}${row.purpose ? `<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(row.purpose)}</span>` : ''}</td>
+        <td class="px-5 py-3 text-sm">${row.ownerId ? escapeHtml(person(row.ownerId).name) : '<span class="text-slate-500">Not set</span>'}</td>
+        <td class="px-5 py-3">${tag(SYSTEM_RISK[row.risk] || SYSTEM_RISK.unrated)}</td>
+        <td class="px-5 py-3 text-sm">${row.controlIds.length ? `${row.met} of ${row.controlIds.length} met` : '<span class="text-slate-500">None</span>'}</td>
+        <td class="px-5 py-3">${tag(SYSTEM_STATUS[row.status] || SYSTEM_STATUS.unlinked)}</td>
+        ${actions}
+      </tr>`;
+  }).join('');
+  const adding = admin && state.systemEdit === '__new__'
+    ? `<section class="mt-5 rounded-xl border border-line bg-white p-5"><h2 class="mb-4 text-sm font-semibold">Add an AI system</h2>${systemForm(null)}</section>`
+    : '';
+  pane.innerHTML = `
+    ${banner()}
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">${escapeHtml(orgName())}</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight">AI System Register</h1>
+        <p class="mt-2 max-w-2xl text-sm text-slate-500">Every AI system in scope, who owns it, how risky it is, and whether the evidence behind it has been approved by a reviewer.</p>
+      </div>
+      ${admin && state.systemEdit !== '__new__' ? '<button type="button" data-system-new class="rounded-lg bg-[#1860C8] px-3.5 py-2 text-sm font-medium text-white">Add AI system</button>' : ''}
+    </div>
+    <div class="mt-5 grid overflow-hidden rounded-xl border border-line bg-white sm:grid-cols-3 sm:divide-x sm:divide-line">${stats}</div>
+    ${adding}
+    <div class="mt-5 overflow-x-auto rounded-xl border border-line bg-white">
+      <table class="w-full text-left">
+        <thead class="text-xs uppercase tracking-wide text-slate-500"><tr>
+          <th class="px-5 py-3 font-medium">AI system</th><th class="px-5 py-3 font-medium">Owner</th><th class="px-5 py-3 font-medium">Risk</th>
+          <th class="px-5 py-3 font-medium">Requirements</th><th class="px-5 py-3 font-medium">Status</th>${admin ? '<th class="px-5 py-3"></th>' : ''}
+        </tr></thead>
+        <tbody>${body || `<tr><td colspan="6" class="px-5 py-8 text-sm text-slate-500">No AI system is on the register yet.${admin ? ' Add the first one above.' : ''}</td></tr>`}</tbody>
+      </table>
+    </div>`;
+}
+
 const PAGES = {
   dashboard: renderDashboard,
   organisation: renderOrganisation,
   people: renderPeople,
   controls: renderControls,
+  systems: renderSystems,
   evidence: renderEvidence,
   review: renderReview,
   tickets: renderTickets,
@@ -2825,11 +2943,19 @@ function armButton(button, text) {
   return true;
 }
 
+// Say which step a long action is on, on the button and the note under it.
+function busyText(form, text) {
+  const button = form.querySelector('[type="submit"]');
+  if (button) button.innerHTML = `<span class="er-spin" aria-hidden="true"></span>${text}`;
+  const note = form.querySelector('.er-hold span:last-child');
+  if (note) note.textContent = text;
+}
+
 async function releaseBusy() {
   const started = state.busyAt;
   state.busyAt = 0;
   if (!started) return;
-  const remain = 900 - (performance.now() - started);
+  const remain = 350 - (performance.now() - started);
   if (remain > 0) await new Promise((resolve) => setTimeout(resolve, remain));
 }
 
@@ -2846,7 +2972,7 @@ async function post(url, body, options = {}) {
     state.error = 'That did not save. Check the connection and try again.';
     state.flash = '';
     await releaseBusy();
-    render();
+    if (!options.keep) render();
     return;
   }
   const data = await response.json().catch(() => ({}));
@@ -2860,7 +2986,8 @@ async function post(url, body, options = {}) {
     state.error = data.error || 'That did not save.';
     state.flash = '';
     await releaseBusy();
-    render();
+    // keep: the caller shows the error in its form, so what was typed stays.
+    if (!options.keep) render();
     return;
   }
   state.workspace = data.workspace;
@@ -2899,6 +3026,28 @@ function drawingOn() {
 }
 
 pane.addEventListener('click', (event) => {
+  const systemNew = event.target.closest('[data-system-new]');
+  const systemEdit = event.target.closest('[data-system-edit]');
+  if (systemNew || systemEdit) {
+    state.systemEdit = systemNew ? '__new__' : systemEdit.dataset.systemEdit;
+    render();
+    pane.querySelector('[data-system-form] input:not([type="hidden"]), [data-system-form] select')?.focus();
+    return;
+  }
+  if (event.target.closest('[data-system-cancel]')) {
+    state.systemEdit = '';
+    render();
+    return;
+  }
+  const systemRemove = event.target.closest('[data-system-remove]');
+  if (systemRemove) {
+    const name = systemRemove.dataset.systemRemove;
+    if (!window.confirm(`Remove ${name} from the AI System Register? Its evidence and requirements stay.`)) return;
+    systemRemove.disabled = true;
+    systemRemove.textContent = 'Removing…';
+    post('/api/loop/systems/remove', { name });
+    return;
+  }
   if (event.target.closest('[data-upload-reset]') || event.target.id === 'upload-choices') {
     state.receiptId = '';
     state.uploadControl = '';
@@ -3109,6 +3258,25 @@ pane.addEventListener('click', (event) => {
 });
 
 pane.addEventListener('submit', (event) => {
+  const systemForm = event.target.closest('[data-system-form]');
+  if (systemForm) {
+    event.preventDefault();
+    const data = new FormData(systemForm);
+    const editing = Boolean(systemForm.dataset.systemForm);
+    if (!armButton(systemForm.querySelector('[type="submit"]'), editing ? 'Saving…' : 'Adding…')) return;
+    post(editing ? '/api/loop/systems/update' : '/api/loop/systems', {
+      name: data.get('name'),
+      purpose: data.get('purpose'),
+      ownerId: data.get('ownerId'),
+      risk: data.get('risk'),
+      controlIds: data.getAll('controlIds'),
+    }).then((result) => {
+      if (!result) return;
+      state.systemEdit = '';
+      render();
+    });
+    return;
+  }
   if (event.target.id === 'receipt-sign-form') {
     event.preventDefault();
     const signature = receiptInk();
@@ -3119,6 +3287,7 @@ pane.addEventListener('submit', (event) => {
       return;
     }
     state.error = '';
+    if (!armButton(event.target.querySelector('[type="submit"]'), 'Sending to the reviewer…')) return;
     post('/api/loop/sign-evidence', { evidenceId: state.receiptId, signature }, { stay: true });
     return;
   }
@@ -3190,12 +3359,6 @@ pane.addEventListener('submit', (event) => {
     event.preventDefault();
     const data = new FormData(event.target);
     post('/api/loop/units', { name: data.get('name'), parentId: data.get('parentId') });
-    return;
-  }
-  if (event.target.id === 'system-form') {
-    event.preventDefault();
-    const data = new FormData(event.target);
-    post('/api/loop/systems', { name: data.get('name') });
     return;
   }
   if (event.target.id === 'placement-form') {
@@ -3362,8 +3525,7 @@ async function storeComputerFile(file) {
   return data.storagePath;
 }
 
-async function evidenceBody(form) {
-  const data = new FormData(form);
+async function evidenceBody(data, file, progress) {
   const sourceId = String(data.get('sourceId') || '');
   const source = evidenceSources().find((row) => row.id === sourceId);
   if (!source) throw new Error('Choose where the document lives.');
@@ -3372,15 +3534,18 @@ async function evidenceBody(form) {
   let documentText = '';
   let storagePath = '';
   if (source.connected) {
-    const file = form.querySelector('input[name="document"]')?.files?.[0];
     if (!file) throw new Error('Choose a file from this computer.');
     if (!name) name = file.name;
+    if (!file.size) throw new Error('That file is empty, so it cannot be read.');
+    progress('Uploading the file…');
+    // The upload runs while the file is fingerprinted and read here.
+    const stored = storeComputerFile(file);
+    stored.catch(() => {});
     const bytes = await file.arrayBuffer();
-    if (!bytes.byteLength) throw new Error('That file is empty, so it cannot be read.');
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     fileHash = [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
     documentText = await readDocumentText(file, bytes);
-    storagePath = await storeComputerFile(file);
+    storagePath = await stored;
   }
   return {
     name,
@@ -3496,39 +3661,43 @@ function unlockEvidenceForm(form) {
 async function sendEvidence(form) {
   form.querySelector('.er-form-error')?.remove();
   const button = form.querySelector('[type="submit"]');
+  // Read the form before it is locked: a disabled field drops out of FormData.
+  const fields = new FormData(form);
+  const file = form.querySelector('input[name="document"]')?.files?.[0] || null;
+  // Lock at once, so the first click shows it is working and a second does nothing.
+  if (!armButton(button, 'Preparing…')) return;
   let body;
   try {
-    body = await evidenceBody(form);
+    body = await evidenceBody(fields, file, (text) => busyText(form, text));
   } catch (error) {
-    state.error = error.message || 'Choose a file and a requirement.';
-    state.flash = '';
-    if (form.id === 'evidence-form') {
-      unlockEvidenceForm(form);
-      showFormError(form, state.error);
-    } else render();
+    state.busyAt = 0;
+    unlockEvidenceForm(form);
+    showFormError(form, error.message || 'Choose a file and a requirement.');
     return;
   }
-  if (!armButton(button, 'Submitting…')) return;
+  busyText(form, 'Submitting…');
   if (form.id !== 'user-upload-form') body.release = true;
-  const data = await post('/api/loop/evidence', body, { stay: form.id === 'user-upload-form' });
+  const data = await post('/api/loop/evidence', body, { stay: form.id === 'user-upload-form', keep: true });
+  if (state.error) {
+    const message = state.error;
+    state.error = '';
+    unlockEvidenceForm(form);
+    showFormError(form, message);
+    return;
+  }
+  if (!data) return;
   if (form.id === 'user-upload-form') {
-    if (!state.error && data?.evidenceId) {
+    if (data.evidenceId) {
       state.page = 'upload';
       state.receiptId = data.evidenceId;
       state.flash = '';
-      state.error = '';
       render();
     }
     return;
   }
-  if (!state.error) {
-    form.reset();
-    document.getElementById('evidence-dialog').close();
-    fillEvidenceDialog();
-  } else {
-    unlockEvidenceForm(form);
-    showFormError(form, state.error);
-  }
+  form.reset();
+  document.getElementById('evidence-dialog').close();
+  fillEvidenceDialog();
 }
 
 function showFormError(form, message) {

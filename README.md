@@ -33,7 +33,7 @@ npm run operator -- name@data-sentinels.com
 
 Run these in the Supabase SQL editor, in order, once each: `supabase/register.sql`, then `supabase/tenancy.sql`, then `supabase/operator.sql`, then `supabase/reviews.sql`. Do not run `register.sql` again after `tenancy.sql`, because it would bring back the old single-organisation save.
 
-Later changes each come with their own file, run once in this order: `decisions.sql`, `history.sql`, `policy-source.sql`, `control-framework.sql`, then `deadlines.sql`. Until `deadlines.sql` is run, the app still works but refuses to save evidence due dates and review or ticket days.
+Later changes each come with their own file, run once in this order: `decisions.sql`, `history.sql`, `policy-source.sql`, `control-framework.sql`, `deadlines.sql`, then `ai-systems.sql`. Until `deadlines.sql` is run, the app still works but refuses to save evidence due dates and review or ticket days. Until `ai-systems.sql` is run, the AI System Register shows no systems' details and refuses to add one.
 
 ## Reminders, deadlines and the report
 
