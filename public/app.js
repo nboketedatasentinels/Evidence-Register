@@ -966,6 +966,48 @@ function evidenceTray() {
     </section>`;
 }
 
+const INDUSTRIES = [
+  'Banking and financial services', 'Insurance', 'Mining and natural resources', 'Energy and utilities',
+  'Telecommunications', 'Technology and software', 'Healthcare', 'Education',
+  'Government and public sector', 'Public enterprise or parastatal', 'Retail and consumer goods',
+  'Manufacturing', 'Agriculture', 'Transport and logistics', 'Professional services and consulting',
+  'Non-profit', 'Other',
+];
+
+// Southern Africa first, then every other country by name.
+const NEAR_COUNTRIES = ['BW', 'ZA', 'NA', 'ZW', 'ZM', 'MZ', 'LS', 'SZ', 'MW', 'AO', 'TZ', 'CD', 'MG', 'MU', 'SC', 'KM'];
+const ALL_COUNTRIES = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HK HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KW KG LA LV LB LS LR LY LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG KP MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW'.split(' ');
+
+function countryGroups() {
+  let names;
+  try {
+    const display = new Intl.DisplayNames(['en'], { type: 'region' });
+    const plain = { CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo' };
+    names = (code) => plain[code] || display.of(code);
+  } catch {
+    names = (code) => code;
+  }
+  const near = NEAR_COUNTRIES.map(names);
+  const rest = ALL_COUNTRIES.filter((code) => !NEAR_COUNTRIES.includes(code)).map(names).sort((a, b) => a.localeCompare(b));
+  return [['Southern Africa', near], ['All other countries', rest]];
+}
+
+// A dropdown that still shows a value saved before the list existed.
+function selectField(label, name, value, groups, required = false) {
+  const known = groups.some(([, items]) => items.includes(value));
+  const option = (item) => `<option value="${escapeHtml(item)}" ${item === value ? 'selected' : ''}>${escapeHtml(item)}</option>`;
+  const body = groups.map(([title, items]) => (title
+    ? `<optgroup label="${escapeHtml(title)}">${items.map(option).join('')}</optgroup>`
+    : items.map(option).join(''))).join('');
+  return `<label class="text-sm font-medium">${label}
+    <select name="${name}" ${required ? 'required' : ''} class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none focus:border-brand">
+      <option value="" ${value ? '' : 'selected'}>Choose…</option>
+      ${value && !known ? option(value) : ''}
+      ${body}
+    </select>
+  </label>`;
+}
+
 function identityComplete(org) {
   return Boolean(org.name && org.legalName && org.country);
 }
@@ -978,8 +1020,8 @@ function identityForm(org, submitLabel) {
         ${frameworkPicker(org.framework)}
         ${field('Legal name', 'legalName', org.legalName)}
         ${field('Operating name', 'name', org.name)}
-        ${field('Industry', 'industry', org.industry)}
-        ${field('Country', 'country', org.country)}
+        ${selectField('Industry', 'industry', org.industry, [['', INDUSTRIES]])}
+        ${selectField('Country', 'country', org.country, countryGroups(), true)}
         <div class="sm:col-span-2"><button type="submit" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">${submitLabel}</button></div>
       </form>`;
 }
