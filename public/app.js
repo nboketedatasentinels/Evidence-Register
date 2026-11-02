@@ -39,6 +39,7 @@ const NAVS = {
   ],
   admin: [
     ['dashboard', 'Setup', icon('grid')],
+    ['identity', 'Organisation profile', icon('user')],
     ['organisation', 'Organisation', icon('people')],
     ['systems', 'AI systems', icon('chip')],
     ['people', 'People', icon('people')],
@@ -965,14 +966,58 @@ function evidenceTray() {
     </section>`;
 }
 
+function identityComplete(org) {
+  return Boolean(org.name && org.legalName && org.country);
+}
+
+// The few facts the register uses about an organisation. Other details stay
+// on the record but are not asked for.
+function identityForm(org, submitLabel) {
+  return `
+      <form id="org-form" class="mt-4 grid gap-3 sm:grid-cols-2">
+        ${frameworkPicker(org.framework)}
+        ${field('Legal name', 'legalName', org.legalName)}
+        ${field('Operating name', 'name', org.name)}
+        ${field('Industry', 'industry', org.industry)}
+        ${field('Country', 'country', org.country)}
+        <div class="sm:col-span-2"><button type="submit" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">${submitLabel}</button></div>
+      </form>`;
+}
+
+// An admin's first sign-in: tell the register who the organisation is before
+// anything else. Afterwards this lives on Organisation profile.
+function renderWelcome() {
+  const org = ws().organisation;
+  pane.innerHTML = `
+    ${banner()}
+    <section class="mx-auto mt-4 max-w-2xl rounded-2xl border border-line bg-white p-6 shadow-sm">
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Welcome, ${escapeHtml(actor().name || '')}</p>
+      <h1 class="mt-1 text-2xl font-semibold tracking-tight">Tell us about ${escapeHtml(org.name || 'your organisation')}</h1>
+      <p class="mt-2 text-sm text-slate-500">This takes a minute. The frameworks you tick put their requirements on the register. You can change any of this later under Organisation profile.</p>
+      ${identityForm(org, 'Save and continue')}
+    </section>`;
+}
+
+function renderIdentity() {
+  const org = ws().organisation;
+  pane.innerHTML = `
+    ${banner()}
+    ${noteCards()}
+    <h1 class="text-2xl font-semibold tracking-tight">Organisation profile</h1>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500">Who the organisation is and the frameworks it governs against. The organisation id is ${escapeHtml(org.id || '')} and is kept by the register.</p>
+    <section class="mt-5 max-w-3xl rounded-xl border border-line bg-white p-5">
+      ${identityForm(org, 'Save profile')}
+    </section>`;
+}
+
 function renderAdminHome() {
   const org = ws().organisation;
+  if (!identityComplete(org)) return renderWelcome();
   const departments = org.departments || [];
   const systems = org.scope?.systems || [];
   const checks = setupChecks(org);
   const done = checks.items.filter(([, ok]) => ok).length;
   const percent = Math.round((done / checks.items.length) * 100);
-  const sizeOptions = ['', '1–10', '11–50', '51–200', '201–1000', 'More than 1000'].map((size) => `<option value="${escapeHtml(size)}" ${org.size === size ? 'selected' : ''}>${size || 'Not set'}</option>`).join('');
   const first = people()[0];
   const peopleRows = people().map((row) => {
     const manager = row.managerId ? person(row.managerId).name : 'Not set';
@@ -1025,30 +1070,6 @@ function renderAdminHome() {
           <tbody>${directoryRows() || '<tr><td colspan="4" class="px-4 py-6 text-sm text-slate-500">Nobody has been added yet.</td></tr>'}</tbody>
         </table>
       </div>
-    </section>
-
-    <section class="mt-5 rounded-xl border border-line bg-white p-5">
-      <h2 class="text-sm font-semibold">Identity</h2>
-      <p class="mt-1 text-sm text-slate-500">Legal name, operating name, where the organisation works, and the frameworks it governs against.</p>
-      <form id="org-form" class="mt-4 grid gap-3 sm:grid-cols-2">
-        ${frameworkPicker(org.framework)}
-        ${field('Legal name', 'legalName', org.legalName)}
-        ${field('Operating name', 'name', org.name)}
-        ${field('Industry', 'industry', org.industry)}
-        ${field('Country', 'country', org.country)}
-        ${field('Operating locations', 'locations', (org.locations || []).join(', '), 'sm:col-span-2')}
-        ${field('Website', 'website', org.website)}
-        <label class="text-sm font-medium">Organisation size
-          <select name="size" class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none focus:border-brand">${sizeOptions}</select>
-        </label>
-        ${field('Main contact', 'contactName', org.contactName)}
-        ${field('Email domain', 'emailDomain', org.emailDomain)}
-        <label class="text-sm font-medium sm:col-span-2">Description
-          <textarea name="description" maxlength="400" rows="3" class="mt-1 w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand">${escapeHtml(org.description || '')}</textarea>
-        </label>
-        <p class="text-xs leading-relaxed text-slate-500 sm:col-span-2">Separate locations with commas. The organisation id is ${escapeHtml(org.id || 'ORG-001')} and is kept by the register.</p>
-        <div><button type="submit" class="rounded-lg bg-brand px-3.5 py-2 text-sm font-medium text-white">Save identity</button></div>
-      </form>
     </section>
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
@@ -1112,7 +1133,7 @@ function renderAdminHome() {
 
     <section class="mt-5 rounded-xl border border-line bg-white p-5">
       <h2 class="text-sm font-semibold">Governance scope</h2>
-      <p class="mt-1 text-sm text-slate-500">The AI systems this register covers. Locations in the identity above are the places in scope. The register does not assume every system or department is in scope.</p>
+      <p class="mt-1 text-sm text-slate-500">The AI systems this register covers. The register does not assume every system or department is in scope.</p>
       <ul class="mt-3 space-y-1 text-sm">${systems.map((name) => `<li>${escapeHtml(name)}</li>`).join('') || '<li class="text-slate-500">No AI system is listed yet.</li>'}</ul>
       <p class="mt-3 text-sm text-slate-600">Locations: ${escapeHtml((org.locations || []).join(', ') || 'Not set')}</p>
       <button type="button" data-go="systems" class="mt-4 rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium">Open the AI System Register</button>
@@ -2463,6 +2484,7 @@ function renderSystems() {
 const PAGES = {
   dashboard: renderDashboard,
   organisation: renderOrganisation,
+  identity: renderIdentity,
   people: renderPeople,
   controls: renderControls,
   systems: renderSystems,
@@ -3339,12 +3361,6 @@ pane.addEventListener('submit', (event) => {
       legalName: data.get('legalName'),
       industry: data.get('industry'),
       country: data.get('country'),
-      locations: data.get('locations'),
-      website: data.get('website'),
-      size: data.get('size'),
-      description: data.get('description'),
-      contactName: data.get('contactName'),
-      emailDomain: data.get('emailDomain'),
       frameworks: data.getAll('frameworks'),
     });
     return;
