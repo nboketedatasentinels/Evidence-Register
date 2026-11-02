@@ -1026,18 +1026,30 @@ function identityForm(org, submitLabel) {
       </form>`;
 }
 
-// An admin's first sign-in: tell the register who the organisation is before
-// anything else. Afterwards this lives on Organisation profile.
-function renderWelcome() {
+// An admin's first sign-in: a full-page step, like sign-in, before the app
+// opens. Afterwards the same form lives on Organisation profile.
+function needsOnboarding() {
+  return state.profile === 'admin' && ws() && !identityComplete(ws().organisation);
+}
+
+function showOnboard() {
   const org = ws().organisation;
-  pane.innerHTML = `
-    ${banner()}
-    <section class="mx-auto mt-4 max-w-2xl rounded-2xl border border-line bg-white p-6 shadow-sm">
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Welcome, ${escapeHtml(actor().name || '')}</p>
-      <h1 class="mt-1 text-2xl font-semibold tracking-tight">Tell us about ${escapeHtml(org.name || 'your organisation')}</h1>
-      <p class="mt-2 text-sm text-slate-500">This takes a minute. The frameworks you tick put their requirements on the register. You can change any of this later under Organisation profile.</p>
-      ${identityForm(org, 'Save and continue')}
-    </section>`;
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('auth').classList.add('hidden');
+  document.getElementById('shell').classList.add('hidden');
+  const page = document.getElementById('onboard');
+  page.classList.remove('hidden');
+  document.getElementById('onboard-panel').innerHTML = `
+    <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Welcome, ${escapeHtml(actor().name || '')}</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight">Tell us about ${escapeHtml(org.name || 'your organisation')}</h1>
+    <p class="mt-3 text-sm leading-relaxed text-slate-600">This takes a minute. The frameworks you tick put their requirements on the register. You can change any of this later under Organisation profile.</p>
+    ${state.error ? `<p class="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">${escapeHtml(state.error)}</p>` : ''}
+    ${identityForm(org, 'Save and continue')}`;
+  const form = page.querySelector('#org-form');
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    saveIdentity(form);
+  });
 }
 
 function renderIdentity() {
@@ -1054,7 +1066,6 @@ function renderIdentity() {
 
 function renderAdminHome() {
   const org = ws().organisation;
-  if (!identityComplete(org)) return renderWelcome();
   const departments = org.departments || [];
   const systems = org.scope?.systems || [];
   const checks = setupChecks(org);
@@ -2699,6 +2710,15 @@ function render() {
     pane.innerHTML = '<p class="text-sm text-slate-500">Loading the register…</p>';
     return;
   }
+  if (needsOnboarding()) {
+    showOnboard();
+    return;
+  }
+  const onboard = document.getElementById('onboard');
+  if (!onboard.classList.contains('hidden')) {
+    onboard.classList.add('hidden');
+    document.getElementById('shell').classList.remove('hidden');
+  }
   paintChrome();
   (PAGES[state.page] || renderDashboard)();
   fillEvidenceDialog();
@@ -2885,6 +2905,17 @@ function startAuthMotion() {
     authMotion = requestAnimationFrame(frame);
   }
   authMotion = requestAnimationFrame(frame);
+}
+
+function saveIdentity(form) {
+  const data = new FormData(form);
+  post('/api/loop/organisation', {
+    name: data.get('name'),
+    legalName: data.get('legalName'),
+    industry: data.get('industry'),
+    country: data.get('country'),
+    frameworks: data.getAll('frameworks'),
+  });
 }
 
 function showApp() {
@@ -3397,14 +3428,7 @@ pane.addEventListener('submit', (event) => {
   }
   if (event.target.id === 'org-form') {
     event.preventDefault();
-    const data = new FormData(event.target);
-    post('/api/loop/organisation', {
-      name: data.get('name'),
-      legalName: data.get('legalName'),
-      industry: data.get('industry'),
-      country: data.get('country'),
-      frameworks: data.getAll('frameworks'),
-    });
+    saveIdentity(event.target);
     return;
   }
   if (event.target.id === 'deadline-form') {
