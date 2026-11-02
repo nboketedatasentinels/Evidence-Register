@@ -560,10 +560,6 @@
               <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Signed in as</p>
               <p class="mt-1 text-base font-semibold">${text(operatorEmail())}</p>
               <p class="mt-1 text-slate-500">Super admin · Data Sentinels</p>
-              <dl class="mt-5 grid gap-3 sm:grid-cols-2">
-                <div><dt class="text-slate-500">Session</dt><dd>Lasts 14 days, or until you sign out. Closing this tab signs you out of this browser.</dd></div>
-                <div><dt class="text-slate-500">Password</dt><dd>Changed by a developer with <code class="text-xs">--reset</code>. See Operators.</dd></div>
-              </dl>
               <button id="signout" type="button" class="mt-6 rounded-lg border border-rose-200 px-4 py-2 font-medium text-rose-700 hover:bg-rose-50">Sign out</button>
             </section>`;
           $('signout').addEventListener('click', signOut);
