@@ -2433,9 +2433,9 @@ const SYSTEM_RISK = {
 };
 
 const SYSTEM_SOURCE = {
-  'in-house': 'Built in-house',
-  'third-party-model': 'Built in-house on a third-party model',
-  bought: 'Bought or subscribed (ready-made tool)',
+  'third-party-model': 'Custom, on a model like Gemini',
+  'in-house': 'Custom, own model',
+  bought: 'Bought tool',
 };
 
 const SYSTEM_STAGE = {
@@ -2447,20 +2447,21 @@ const SYSTEM_STAGE = {
 };
 
 const SYSTEM_OVERSIGHT = {
-  'person-decides': 'AI suggests, a person decides',
-  'person-samples': 'AI decides, a person checks a sample',
-  automated: 'AI decides on its own',
+  'person-decides': 'A person',
+  'person-samples': 'AI, person spot-checks',
+  automated: 'AI alone',
 };
 
-const SYSTEM_PERSONAL_DATA = { yes: 'Yes', no: 'No', unsure: 'Not sure yet' };
+const SYSTEM_PERSONAL_DATA = { yes: 'Yes', no: 'No', unsure: 'Not sure' };
 
 // One short line under the system name: how it came about, its model, its stage, who decides.
 function systemFacts(row) {
-  const made = { 'in-house': 'Built in-house', 'third-party-model': 'Built in-house', bought: 'Bought' }[row.source] || '';
+  const made = { 'in-house': 'Custom', 'third-party-model': 'Custom', bought: 'Bought' }[row.source] || '';
+  const decides = { 'person-decides': 'Person decides', 'person-samples': 'AI decides, spot-checked', automated: 'AI decides alone' }[row.oversight];
   const facts = [
     made && row.provider ? `${made} on ${row.provider}` : made || row.provider,
     SYSTEM_STAGE[row.stage],
-    SYSTEM_OVERSIGHT[row.oversight],
+    decides,
     row.personalData === 'yes' ? 'Personal data' : '',
     row.countries,
   ].filter(Boolean);
@@ -2487,29 +2488,28 @@ function systemForm(row) {
       ${row
         ? `<input type="hidden" name="name" value="${escapeHtml(row.name)}" />`
         : `<label class="text-sm font-medium">AI system
-            <input name="name" required maxlength="120" placeholder="Assignment grading assistant" class="${field}" />
+            <input name="name" required maxlength="120" placeholder="Grading assistant" class="${field}" />
           </label>`}
       <label class="text-sm font-medium">What it does
-        <input name="purpose" maxlength="300" value="${escapeHtml(row?.purpose || '')}" placeholder="Suggests a mark and feedback on learners' written answers" class="${field}" />
+        <input name="purpose" maxlength="300" value="${escapeHtml(row?.purpose || '')}" placeholder="Suggests marks for learners' answers" class="${field}" />
       </label>
-      <label class="text-sm font-medium">How you got it
+      <label class="text-sm font-medium">Type
         <select name="source" class="${field}">${options(SYSTEM_SOURCE, row?.source || '')}</select>
-        <span class="mt-1 block text-xs font-normal text-slate-500">Systems you build yourselves count, even when they run on someone else's model.</span>
       </label>
-      <label class="text-sm font-medium">Provider and model
+      <label class="text-sm font-medium">Model
         <input name="provider" maxlength="120" value="${escapeHtml(row?.provider || '')}" placeholder="Google Gemini 3 Flash" class="${field}" />
       </label>
       <label class="text-sm font-medium">Stage
         <select name="stage" class="${field}">${options(SYSTEM_STAGE, row?.stage || '')}</select>
       </label>
-      <label class="text-sm font-medium">Who makes the final decision
+      <label class="text-sm font-medium">Final decision by
         <select name="oversight" class="${field}">${options(SYSTEM_OVERSIGHT, row?.oversight || '')}</select>
       </label>
-      <label class="text-sm font-medium">Uses personal data
+      <label class="text-sm font-medium">Personal data
         <select name="personalData" class="${field}">${options(SYSTEM_PERSONAL_DATA, row?.personalData || '')}</select>
       </label>
-      <label class="text-sm font-medium">Where the data is processed
-        <input name="countries" maxlength="200" value="${escapeHtml(row?.countries || '')}" placeholder="Germany (database); USA (Google)" class="${field}" />
+      <label class="text-sm font-medium">Data processed in
+        <input name="countries" maxlength="200" value="${escapeHtml(row?.countries || '')}" placeholder="Germany, USA" class="${field}" />
       </label>
       <label class="text-sm font-medium">Owner
         <select name="ownerId" class="${field}"><option value="">Not set</option>${owners}</select>
@@ -2519,7 +2519,7 @@ function systemForm(row) {
       </label>
       <fieldset class="sm:col-span-2">
         <legend class="text-sm font-medium">Requirements that cover it</legend>
-        <p class="mt-1 text-xs text-slate-500">Its status comes from these. It reads Approved only when a reviewer has confirmed every one.</p>
+        <p class="mt-1 text-xs text-slate-500">Approved once a reviewer confirms each one.</p>
         <div class="mt-2 max-h-56 overflow-y-auto rounded-lg border border-line px-3 py-2">${controls || '<p class="py-1 text-sm text-slate-500">No requirement is on the control set yet.</p>'}</div>
       </fieldset>
       <div class="flex flex-wrap gap-2 sm:col-span-2">
