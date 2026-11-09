@@ -13,13 +13,13 @@ const loop = require('../lib/loop');
 // want: the status each system should show, if the organisation has a
 // requirement in that state to link it to.
 const DEMO = [
-  { name: 'Customer chatbot', purpose: 'Answers customer questions on the website and WhatsApp', risk: 'high', want: 'review-due' },
-  { name: 'CV screening tool', purpose: 'Shortlists job applicants from their CVs', risk: 'high', want: 'no-evidence' },
-  { name: 'Fraud detection', purpose: 'Flags unusual transactions for the risk team', risk: 'medium', want: 'approved' },
-  { name: 'Meeting notes AI', purpose: 'Transcribes and summarises internal meetings', risk: 'low', want: 'approved' },
-  { name: 'Credit scoring model', purpose: 'Scores loan applications before a person decides', risk: 'high', want: 'action' },
-  { name: 'Network anomaly detection', purpose: 'Watches network traffic for signs of attack', risk: 'medium', want: 'no-evidence' },
-  { name: 'Document summariser', purpose: 'Summarises contracts and policies for staff', risk: 'low', want: 'review-due' },
+  { name: 'Assignment grading assistant', purpose: "Suggests a mark and feedback on learners' written answers", source: 'third-party-model', provider: 'Google Gemini 3 Flash', stage: 'live', oversight: 'person-decides', personalData: 'no', countries: 'Germany (database); USA (Google)', risk: 'medium', want: 'review-due' },
+  { name: 'Customer chatbot', purpose: 'Answers customer questions on the website and WhatsApp', source: 'third-party-model', provider: 'OpenAI GPT-4o', stage: 'live', oversight: 'automated', personalData: 'yes', countries: 'South Africa; USA (OpenAI)', risk: 'high', want: 'action' },
+  { name: 'CV screening tool', purpose: 'Shortlists job applicants from their CVs', source: 'bought', provider: 'Recruitment platform add-on', stage: 'testing', oversight: 'person-decides', personalData: 'yes', countries: 'Ireland (vendor)', risk: 'high', want: 'no-evidence' },
+  { name: 'Fraud detection', purpose: 'Flags unusual transactions for the risk team', source: 'in-house', provider: 'Own model, trained on 3 years of transactions', stage: 'live', oversight: 'person-samples', personalData: 'yes', countries: 'South Africa', risk: 'medium', want: 'approved' },
+  { name: 'Meeting notes AI', purpose: 'Transcribes and summarises internal meetings', source: 'bought', provider: 'Microsoft Copilot', stage: 'live', oversight: 'person-decides', personalData: 'yes', countries: 'EU (Microsoft)', risk: 'low', want: 'approved' },
+  { name: 'Credit scoring model', purpose: 'Scores loan applications before a person decides', source: 'in-house', provider: 'Own model', stage: 'building', oversight: 'person-decides', personalData: 'yes', countries: 'Zimbabwe', risk: 'high', want: 'action' },
+  { name: 'Document summariser', purpose: 'Summarises contracts and policies for staff', source: 'third-party-model', provider: 'Anthropic Claude', stage: 'planned', oversight: 'person-decides', personalData: 'unsure', countries: 'USA (Anthropic)', risk: 'low', want: 'review-due' },
 ];
 
 function groups(controls) {

@@ -2432,6 +2432,41 @@ const SYSTEM_RISK = {
   unrated: ['Not rated', 'bg-slate-100 text-slate-600'],
 };
 
+const SYSTEM_SOURCE = {
+  'in-house': 'Built in-house',
+  'third-party-model': 'Built in-house on a third-party model',
+  bought: 'Bought or subscribed (ready-made tool)',
+};
+
+const SYSTEM_STAGE = {
+  planned: 'Planned',
+  building: 'Being built',
+  testing: 'Testing',
+  live: 'In use',
+  retired: 'Retired',
+};
+
+const SYSTEM_OVERSIGHT = {
+  'person-decides': 'AI suggests, a person decides',
+  'person-samples': 'AI decides, a person checks a sample',
+  automated: 'AI decides on its own',
+};
+
+const SYSTEM_PERSONAL_DATA = { yes: 'Yes', no: 'No', unsure: 'Not sure yet' };
+
+// One short line under the system name: how it came about, its model, its stage, who decides.
+function systemFacts(row) {
+  const made = { 'in-house': 'Built in-house', 'third-party-model': 'Built in-house', bought: 'Bought' }[row.source] || '';
+  const facts = [
+    made && row.provider ? `${made} on ${row.provider}` : made || row.provider,
+    SYSTEM_STAGE[row.stage],
+    SYSTEM_OVERSIGHT[row.oversight],
+    row.personalData === 'yes' ? 'Personal data' : '',
+    row.countries,
+  ].filter(Boolean);
+  return facts.join(' · ');
+}
+
 function tag([label, tone]) {
   return `<span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(label)}</span>`;
 }
@@ -2441,6 +2476,7 @@ function systemForm(row) {
   const field = 'mt-1 block w-full rounded-lg border border-line px-3 py-2 font-normal outline-none focus:border-brand';
   const owners = people().map((item) => `<option value="${escapeHtml(item.id)}" ${row?.ownerId === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('');
   const risks = Object.keys(SYSTEM_RISK).map((key) => `<option value="${key}" ${(row?.risk || 'unrated') === key ? 'selected' : ''}>${SYSTEM_RISK[key][0]}</option>`).join('');
+  const options = (list, value) => `<option value="">Not set</option>${Object.entries(list).map(([key, label]) => `<option value="${key}" ${value === key ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}`;
   const controls = (ws().controls || []).map((control) => `
     <label class="flex items-start gap-2 py-1 text-sm font-normal">
       <input type="checkbox" name="controlIds" value="${escapeHtml(control.id)}" ${chosen.has(control.id) ? 'checked' : ''} class="mt-1" />
@@ -2451,10 +2487,29 @@ function systemForm(row) {
       ${row
         ? `<input type="hidden" name="name" value="${escapeHtml(row.name)}" />`
         : `<label class="text-sm font-medium">AI system
-            <input name="name" required maxlength="120" placeholder="Customer chatbot" class="${field}" />
+            <input name="name" required maxlength="120" placeholder="Assignment grading assistant" class="${field}" />
           </label>`}
       <label class="text-sm font-medium">What it does
-        <input name="purpose" maxlength="300" value="${escapeHtml(row?.purpose || '')}" placeholder="Answers customer questions on the website" class="${field}" />
+        <input name="purpose" maxlength="300" value="${escapeHtml(row?.purpose || '')}" placeholder="Suggests a mark and feedback on learners' written answers" class="${field}" />
+      </label>
+      <label class="text-sm font-medium">How you got it
+        <select name="source" class="${field}">${options(SYSTEM_SOURCE, row?.source || '')}</select>
+        <span class="mt-1 block text-xs font-normal text-slate-500">Systems you build yourselves count, even when they run on someone else's model.</span>
+      </label>
+      <label class="text-sm font-medium">Provider and model
+        <input name="provider" maxlength="120" value="${escapeHtml(row?.provider || '')}" placeholder="Google Gemini 3 Flash" class="${field}" />
+      </label>
+      <label class="text-sm font-medium">Stage
+        <select name="stage" class="${field}">${options(SYSTEM_STAGE, row?.stage || '')}</select>
+      </label>
+      <label class="text-sm font-medium">Who makes the final decision
+        <select name="oversight" class="${field}">${options(SYSTEM_OVERSIGHT, row?.oversight || '')}</select>
+      </label>
+      <label class="text-sm font-medium">Uses personal data
+        <select name="personalData" class="${field}">${options(SYSTEM_PERSONAL_DATA, row?.personalData || '')}</select>
+      </label>
+      <label class="text-sm font-medium">Where the data is processed
+        <input name="countries" maxlength="200" value="${escapeHtml(row?.countries || '')}" placeholder="Germany (database); USA (Google)" class="${field}" />
       </label>
       <label class="text-sm font-medium">Owner
         <select name="ownerId" class="${field}"><option value="">Not set</option>${owners}</select>
@@ -2501,7 +2556,7 @@ function renderSystems() {
       : '';
     return `
       <tr class="border-t border-line align-top">
-        <td class="px-5 py-3 text-sm font-medium">${escapeHtml(row.name)}${row.purpose ? `<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(row.purpose)}</span>` : ''}</td>
+        <td class="px-5 py-3 text-sm font-medium">${escapeHtml(row.name)}${row.purpose ? `<span class="mt-1 block text-xs font-normal text-slate-500">${escapeHtml(row.purpose)}</span>` : ''}${systemFacts(row) ? `<span class="mt-1 block text-xs font-normal text-slate-400">${escapeHtml(systemFacts(row))}</span>` : ''}</td>
         <td class="px-5 py-3 text-sm">${row.ownerId ? escapeHtml(person(row.ownerId).name) : '<span class="text-slate-500">Not set</span>'}</td>
         <td class="px-5 py-3">${tag(SYSTEM_RISK[row.risk] || SYSTEM_RISK.unrated)}</td>
         <td class="px-5 py-3 text-sm">${row.controlIds.length ? `${row.met} of ${row.controlIds.length} met` : '<span class="text-slate-500">None</span>'}</td>
@@ -3365,6 +3420,12 @@ pane.addEventListener('submit', (event) => {
       purpose: data.get('purpose'),
       ownerId: data.get('ownerId'),
       risk: data.get('risk'),
+      source: data.get('source'),
+      provider: data.get('provider'),
+      stage: data.get('stage'),
+      oversight: data.get('oversight'),
+      personalData: data.get('personalData'),
+      countries: data.get('countries'),
       controlIds: data.getAll('controlIds'),
     }).then((result) => {
       if (!result) return;
