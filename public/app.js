@@ -2456,7 +2456,7 @@ const SYSTEM_PERSONAL_DATA = { yes: 'Yes', no: 'No', unsure: 'Not sure' };
 
 // Inbuilt AI systems. Picking one fills the form; every field can still be changed.
 const SYSTEM_PRESETS = [
-  { name: 'Data Sentinels evidence evaluator', purpose: "Suggests marks and feedback on learners' answers; a partner decides", source: 'third-party-model', provider: 'Google Gemini 3 Flash', stage: 'live', oversight: 'person-decides', personalData: 'no', countries: 'Germany, USA', risk: 'medium' },
+  { name: 'Data Sentinels evidence evaluator (Gemini model)', purpose: "Suggests marks and feedback on learners' answers; a partner decides", source: 'third-party-model', provider: 'Google Gemini 3 Flash', stage: 'live', oversight: 'person-decides', personalData: 'no', countries: 'Germany, USA', risk: 'medium' },
   { name: 'Customer chatbot', purpose: 'Answers customer questions on the website', source: 'third-party-model', provider: 'OpenAI GPT-4o', stage: 'live', oversight: 'automated', personalData: 'yes', countries: 'USA', risk: 'high' },
   { name: 'Meeting notes AI', purpose: 'Transcribes and summarises meetings', source: 'bought', provider: 'Microsoft Copilot', stage: 'live', oversight: 'person-decides', personalData: 'yes', countries: 'EU', risk: 'low' },
   { name: 'Document summariser', purpose: 'Summarises contracts and policies for staff', source: 'third-party-model', provider: 'Anthropic Claude', stage: 'testing', oversight: 'person-decides', personalData: 'unsure', countries: 'USA', risk: 'low' },
