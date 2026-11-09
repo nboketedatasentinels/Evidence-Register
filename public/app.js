@@ -995,14 +995,15 @@ function countryGroups() {
 // A dropdown that still shows a value saved before the list existed.
 function selectField(label, name, value, groups, required = false) {
   const known = groups.some(([, items]) => items.includes(value));
-  const option = (item) => `<option value="${escapeHtml(item)}" ${item === value ? 'selected' : ''}>${escapeHtml(item)}</option>`;
+  const hasOther = groups.some(([, items]) => items.includes('Other'));
+  const option = (item, custom = false) => `<option value="${escapeHtml(item)}" ${custom ? 'data-other-value' : ''} ${item === value ? 'selected' : ''}>${escapeHtml(item)}</option>`;
   const body = groups.map(([title, items]) => (title
-    ? `<optgroup label="${escapeHtml(title)}">${items.map(option).join('')}</optgroup>`
-    : items.map(option).join(''))).join('');
+    ? `<optgroup label="${escapeHtml(title)}">${items.map((item) => option(item)).join('')}</optgroup>`
+    : items.map((item) => option(item)).join(''))).join('');
   return `<label class="text-sm font-medium">${label}
     <select name="${name}" ${required ? 'required' : ''} class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-normal outline-none focus:border-brand">
       <option value="" ${value ? '' : 'selected'}>Choose…</option>
-      ${value && !known ? option(value) : ''}
+      ${value && !known ? option(value, hasOther) : ''}
       ${body}
     </select>
   </label>`;
