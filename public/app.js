@@ -2454,6 +2454,16 @@ const SYSTEM_OVERSIGHT = {
 
 const SYSTEM_PERSONAL_DATA = { yes: 'Yes', no: 'No', unsure: 'Not sure' };
 
+// Inbuilt AI systems. Picking one fills the form; every field can still be changed.
+const SYSTEM_PRESETS = [
+  { name: 'T4L assignment grading', purpose: "Suggests marks and feedback on learners' answers; a partner decides", source: 'third-party-model', provider: 'Google Gemini 3 Flash', stage: 'live', oversight: 'person-decides', personalData: 'no', countries: 'Germany, USA', risk: 'medium' },
+  { name: 'Customer chatbot', purpose: 'Answers customer questions on the website', source: 'third-party-model', provider: 'OpenAI GPT-4o', stage: 'live', oversight: 'automated', personalData: 'yes', countries: 'USA', risk: 'high' },
+  { name: 'Meeting notes AI', purpose: 'Transcribes and summarises meetings', source: 'bought', provider: 'Microsoft Copilot', stage: 'live', oversight: 'person-decides', personalData: 'yes', countries: 'EU', risk: 'low' },
+  { name: 'Document summariser', purpose: 'Summarises contracts and policies for staff', source: 'third-party-model', provider: 'Anthropic Claude', stage: 'testing', oversight: 'person-decides', personalData: 'unsure', countries: 'USA', risk: 'low' },
+  { name: 'CV screening tool', purpose: 'Shortlists job applicants from their CVs', source: 'bought', provider: '', stage: 'testing', oversight: 'person-decides', personalData: 'yes', countries: '', risk: 'high' },
+  { name: 'Fraud detection', purpose: 'Flags unusual transactions for the risk team', source: 'in-house', provider: 'Own model', stage: 'live', oversight: 'person-samples', personalData: 'yes', countries: '', risk: 'medium' },
+];
+
 // One short line under the system name: how it came about, its model, its stage, who decides.
 function systemFacts(row) {
   const made = { 'in-house': 'Custom', 'third-party-model': 'Custom', bought: 'Bought' }[row.source] || '';
@@ -2487,7 +2497,11 @@ function systemForm(row) {
     <form data-system-form="${row ? escapeHtml(row.name) : ''}" class="grid gap-4 sm:grid-cols-2">
       ${row
         ? `<input type="hidden" name="name" value="${escapeHtml(row.name)}" />`
-        : `<label class="text-sm font-medium">AI system
+        : `<label class="text-sm font-medium sm:col-span-2">Start from
+            <select data-system-preset class="${field}"><option value="">Write your own</option>${SYSTEM_PRESETS.map((item, index) => `<option value="${index}">${escapeHtml(item.name)}</option>`).join('')}</select>
+            <span class="mt-1 block text-xs font-normal text-slate-500">Pick an inbuilt system to fill the form, then change anything.</span>
+          </label>
+          <label class="text-sm font-medium">AI system
             <input name="name" required maxlength="120" placeholder="Grading assistant" class="${field}" />
           </label>`}
       <label class="text-sm font-medium">What it does
@@ -3562,6 +3576,16 @@ pane.addEventListener('input', (event) => {
 });
 
 pane.addEventListener('change', (event) => {
+  if (event.target.dataset.systemPreset !== undefined) {
+    const preset = SYSTEM_PRESETS[Number(event.target.value)];
+    const form = event.target.closest('form');
+    if (!preset || !form) return;
+    ['name', 'purpose', 'source', 'provider', 'stage', 'oversight', 'personalData', 'countries', 'risk'].forEach((key) => {
+      const input = form.elements[key];
+      if (input) input.value = preset[key] || '';
+    });
+    return;
+  }
   if (event.target.dataset.feedbackFilter) {
     state[event.target.dataset.feedbackFilter] = event.target.value;
     render();
