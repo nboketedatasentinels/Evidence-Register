@@ -2203,6 +2203,14 @@ function renderReview() {
     </section>`;
 }
 
+// A long document is cut before it is sent for a suggested mark. Pull that warning out of the reason.
+function partialRead(reason) {
+  const text = String(reason || '');
+  const at = text.indexOf('Only the first part of this document was read');
+  if (at < 0) return { reason: text, note: '' };
+  return { reason: text.slice(0, at).trim(), note: text.slice(at).trim() };
+}
+
 function reviewCard(control) {
   const judgement = control.judgement;
   const filer = latestFor(control.id);
@@ -2223,7 +2231,8 @@ function reviewCard(control) {
         </div>
         <div class="text-right">${judgement.graded ? '<p class="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Suggested mark</p>' : ''}${pill(judgement.status)}</div>
       </div>
-      <p class="mt-4 max-w-3xl text-sm leading-relaxed">${escapeHtml(judgement.reason)}</p>
+      <p class="mt-4 max-w-3xl text-sm leading-relaxed">${escapeHtml(partialRead(judgement.reason).reason)}</p>
+      ${partialRead(judgement.reason).note ? `<p class="mt-3 max-w-3xl rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"><span class="font-medium">Partly read. </span>${escapeHtml(partialRead(judgement.reason).note)}</p>` : ''}
       ${judgement.recommendation ? `<p class="mt-2 text-sm text-slate-600"><span class="font-medium text-ink">Suggested action. </span>${escapeHtml(judgement.recommendation)}</p>` : ''}
       ${proposed}
       ${readingBlock(control, filer)}
